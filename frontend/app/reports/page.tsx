@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowRight,
   BadgeCheck,
@@ -12,18 +14,39 @@ import {
   Sparkles
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
+import { safeFetchPaginated } from "@/lib/api-client";
+import type { ReportListItem } from "@/types/api";
 
-const overviewCards = [
+type OverviewCard = {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof FileText;
+  tone: string;
+};
+
+type UiReport = {
+  id?: string;
+  name: string;
+  description: string;
+  risk: string;
+  status: string;
+  created: string;
+  href: string;
+};
+
+const fallbackOverviewCards: OverviewCard[] = [
   { label: "Reports generated", value: "12", detail: "Across active matters", icon: FileText, tone: "text-[#BFDBFE]" },
   { label: "Export-ready", value: "4", detail: "Prepared for sharing", icon: BadgeCheck, tone: "text-[#86EFAC]" },
   { label: "High-risk reports", value: "3", detail: "Need legal review", icon: ShieldAlert, tone: "text-[#FCA5A5]" },
   { label: "Time saved", value: "18h", detail: "Estimated review time", icon: Clock3, tone: "text-[#C4B5FD]" }
 ];
 
-const reports = [
+const fallbackReports: UiReport[] = [
   {
     name: "Vendor Data Processing Agreement",
     description: "AI-generated legal intelligence report",
@@ -89,7 +112,90 @@ function statusTone(status: string) {
   return status === "Export ready" || status === "Exported" ? "ready" : "neutral";
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function riskLabel(score: number | null) {
+  if (score === null) {
+    return "Unscored";
+  }
+
+  if (score >= 80) {
+    return "High";
+  }
+
+  if (score >= 50) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
+function titleCase(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function toUiReport(report: ReportListItem): UiReport {
+  return {
+    id: report.id,
+    name: report.title,
+    description: report.document?.title ?? "AI-generated legal intelligence report",
+    risk: riskLabel(report.riskScoreSnapshot ?? report.document?.riskScore ?? null),
+    status: titleCase(report.status),
+    created: formatDate(report.createdAt),
+    href: `/reports/demo-report?reportId=${report.id}`
+  };
+}
+
 export default function ReportsPage() {
+  const [apiReports, setApiReports] = useState<ReportListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    safeFetchPaginated<ReportListItem>("/reports")
+      .then((response) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setApiReports(response.data);
+        setIsFallback(false);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsFallback(true);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const reports = useMemo(() => (apiReports.length > 0 ? apiReports.map(toUiReport) : fallbackReports), [apiReports]);
+  const exportReadyCount = reports.filter((report) => report.status.toLowerCase().includes("ready") || report.status.toLowerCase().includes("completed")).length;
+  const highRiskCount = reports.filter((report) => report.risk === "High").length;
+  const overviewCards = apiReports.length > 0
+    ? [
+        { label: "Reports generated", value: String(apiReports.length), detail: "From backend workspace", icon: FileText, tone: "text-[#BFDBFE]" },
+        { label: "Export-ready", value: String(exportReadyCount), detail: "Prepared for sharing", icon: BadgeCheck, tone: "text-[#86EFAC]" },
+        { label: "High-risk reports", value: String(highRiskCount), detail: "Need legal review", icon: ShieldAlert, tone: "text-[#FCA5A5]" },
+        { label: "Latest report", value: reports[0]?.created ?? "None", detail: "Most recent backend report", icon: Clock3, tone: "text-[#C4B5FD]" }
+      ]
+    : fallbackOverviewCards;
+
   return (
     <DashboardShell>
       <div className="mx-auto max-w-[1440px] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
@@ -105,7 +211,7 @@ export default function ReportsPage() {
             </p>
           </div>
           <Button asChild className="w-full sm:w-fit">
-            <Link href="/reports/demo-report">
+            <Link href={reports[0]?.href ?? "/reports/demo-report"}>
               <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
               View Report
             </Link>
@@ -152,13 +258,20 @@ export default function ReportsPage() {
                     Recent reports
                   </h2>
                 </div>
-                <Badge tone="ready">4 export-ready</Badge>
+                <Badge tone={isFallback ? "neutral" : "ready"}>{isFallback ? "Backend unavailable — showing demo data" : isLoading ? "Loading reports" : `${exportReadyCount} export-ready`}</Badge>
               </div>
             </div>
             <div className="mt-5 grid gap-4 2xl:grid-cols-2">
+              {isLoading ? (
+                <>
+                  {[0, 1, 2, 3].map((item) => (
+                    <div key={item} className="h-[220px] animate-pulse rounded-2xl border border-border bg-[#0D1117]/70" />
+                  ))}
+                </>
+              ) : null}
               {reports.map((report) => (
                 <article
-                  key={report.name}
+                  key={report.id ?? report.name}
                   className="group flex min-w-0 flex-col rounded-2xl border border-border bg-[#0D1117]/70 p-5 shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition duration-150 ease-out hover:-translate-y-1 hover:border-primary/45 hover:bg-[#1F2937]/55 hover:shadow-[0_16px_44px_rgba(0,0,0,0.24)]"
                 >
                   <div className="flex flex-1 flex-col gap-5">

@@ -21,11 +21,13 @@ import {
   Upload,
   X
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { safeFetch } from "@/lib/api-client";
+import type { DashboardData } from "@/types/api";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: Home, active: true },
@@ -45,7 +47,7 @@ const pipelineSteps = [
   { label: "Summary ready", value: "4 min read", state: "Ready" }
 ];
 
-const stats = [
+const fallbackStats = [
   {
     label: "Documents reviewed",
     value: "24",
@@ -72,7 +74,7 @@ const stats = [
   }
 ];
 
-const documents = [
+const fallbackDocuments = [
   {
     title: "Series A Subscription Agreement",
     type: "Financing",
@@ -103,6 +105,10 @@ const activities = [
   { title: "AI summary generated", detail: "Series A Subscription Agreement", time: "12m", icon: Sparkles },
   { title: "Risk card updated", detail: "Indemnity clause marked medium risk", time: "28m", icon: ShieldAlert },
   { title: "Report exported", detail: "MSA review PDF downloaded", time: "2h", icon: CheckCircle2 }
+];
+
+const fallbackReports = [
+  { id: "demo-report", title: "Vendor Data Processing Agreement", document: "Commercial / Privacy", status: "Export ready", risk: "Medium", time: "Just now", href: "/reports/demo-report" }
 ];
 
 const quickActions = [
@@ -209,10 +215,129 @@ function StatVisual({ type }: { type: string }) {
   );
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+function titleCase(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function riskLabel(score: number | null) {
+  if (score === null) {
+    return "Unscored";
+  }
+
+  if (score >= 80) {
+    return "High";
+  }
+
+  if (score >= 50) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
+function riskBadge(risk: string) {
+  if (risk === "High") {
+    return "border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FCA5A5]";
+  }
+
+  if (risk === "Low") {
+    return "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]";
+  }
+
+  return "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]";
+}
+
 export default function DashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const entrance = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    safeFetch<DashboardData>("/demo/dashboard")
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setDashboard(data);
+        setIsFallback(false);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsFallback(true);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const stats = dashboard
+    ? [
+        { label: "Documents reviewed", value: String(dashboard.counts.documents), detail: `${dashboard.counts.analyzedDocuments} analyzed`, icon: FileText, tone: "text-primary", visual: "sparkline" },
+        { label: "AI usage", value: "Read-only", detail: dashboard.workspace.name, icon: Sparkles, tone: "text-[#8B5CF6]", visual: "ring" },
+        { label: "Risk overview", value: String(dashboard.counts.highRiskFindings), detail: "High-risk findings", icon: ShieldAlert, tone: "text-[#F59E0B]", visual: "heatmap" }
+      ]
+    : fallbackStats;
+  const documents = useMemo(
+    () =>
+      dashboard?.recentDocuments.length
+        ? dashboard.recentDocuments.map((document) => ({
+            title: document.title,
+            type: document.description ?? "Legal document",
+            risk: riskLabel(document.riskScore),
+            status: titleCase(document.status),
+            time: formatDate(document.createdAt),
+            badge: riskBadge(riskLabel(document.riskScore)),
+            href: `/contracts/demo-analysis?documentId=${document.id}`
+          }))
+        : fallbackDocuments.map((document) => ({ ...document, href: "/contracts/demo-analysis" })),
+    [dashboard]
+  );
+  const reports = useMemo(
+    () =>
+      dashboard?.recentReports.length
+        ? dashboard.recentReports.map((report) => ({
+            id: report.id,
+            title: report.title,
+            document: report.document?.title ?? "Legal report",
+            status: titleCase(report.status),
+            risk: riskLabel(report.riskScoreSnapshot ?? report.document?.riskScore ?? null),
+            time: formatDate(report.createdAt),
+            href: `/reports/demo-report?reportId=${report.id}`
+          }))
+        : fallbackReports,
+    [dashboard]
+  );
+  const auditActivities = dashboard?.recentAuditLogs.length
+    ? dashboard.recentAuditLogs.slice(0, 5).map((activity) => ({
+        title: titleCase(activity.action),
+        detail: `${titleCase(activity.entityType)} ${activity.actorUser?.name ?? activity.actorUser?.email ?? "system"}`,
+        time: formatDate(activity.createdAt),
+        icon: CheckCircle2
+      }))
+    : activities;
+  const userName = dashboard?.currentUser.name ?? "Apex Legal";
+  const userEmail = dashboard?.currentUser.email ?? "apex@lexai.local";
+  const workspaceName = dashboard?.workspace.name ?? "LexAI Intelligence";
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -300,7 +425,7 @@ export default function DashboardPage() {
               aria-label="Open profile"
               className="h-10 w-10 rounded-full border border-border bg-muted text-sm font-semibold text-foreground transition duration-150 ease-out hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              AL
+              {userName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
             </button>
           </div>
         </header>
@@ -317,13 +442,13 @@ export default function DashboardPage() {
                 <CardContent className="p-6 sm:p-8 lg:p-10">
                   <div className="inline-flex h-7 items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD]">
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
-                    AI legal intelligence workspace
+                    {isFallback ? "Using frontend demo data" : isLoading ? "Loading backend workspace" : workspaceName}
                   </div>
                   <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-tight text-foreground sm:text-5xl">
-                    Understand contracts in seconds.
+                    Welcome back, {userName.split(" ")[0] ?? "there"}.
                   </h1>
                   <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                    Upload contracts, detect legal risks, summarize obligations, compare revisions, and generate AI-powered reports.
+                    {userEmail} can review recent documents, report snapshots, and activity from the LexAI demo workspace.
                   </p>
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
                     <motion.div
@@ -359,7 +484,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                          Clause 7 contains uncapped liability. Consider adding a liability cap before signing.
+                          {dashboard?.recentDocuments[0]?.summary ?? "Clause 7 contains uncapped liability. Consider adding a liability cap before signing."}
                         </p>
                         <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-muted-foreground">
                           <span className="rounded-full border border-border px-3 py-1">12 clauses checked</span>
@@ -454,7 +579,7 @@ export default function DashboardPage() {
                     {documents.map((document) => (
                       <Link
                         key={document.title}
-                        href="/contracts/demo-analysis"
+                        href={document.href}
                         className="grid gap-4 border-b border-border bg-background p-4 transition duration-150 ease-out last:border-b-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid-cols-[minmax(0,1fr)_112px_120px_96px]"
                       >
                         <span>
@@ -474,15 +599,38 @@ export default function DashboardPage() {
 
               <Card>
                 <CardHeader className="p-6">
+                  <CardTitle className="text-xl">Recent Reports</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-0 p-6 pt-0">
+                  {reports.map((report) => (
+                    <Link key={report.id} href={report.href} className="mb-3 block rounded-2xl border border-border bg-background p-4 transition duration-150 ease-out last:mb-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="block text-sm font-medium leading-6 text-foreground">{report.title}</span>
+                        <span className={`h-7 w-fit rounded-full border px-3 py-1 text-xs font-medium ${riskBadge(report.risk)}`}>{report.risk}</span>
+                      </span>
+                      <span className="mt-1 block text-sm leading-6 text-muted-foreground">{report.document}</span>
+                      <span className="mt-3 flex items-center justify-between gap-3 text-xs font-medium text-muted-foreground">
+                        <span>{report.status}</span>
+                        <span>{report.time}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="mt-8">
+              <Card>
+                <CardHeader className="p-6">
                   <CardTitle className="text-xl">Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-0 p-6 pt-0">
-                  {activities.map((activity, index) => {
+                  {auditActivities.map((activity, index) => {
                     const Icon = activity.icon;
 
                     return (
-                      <div key={activity.title} className="relative flex gap-4 pb-5 last:pb-0">
-                        {index < activities.length - 1 ? <span className="absolute left-5 top-10 h-[calc(100%-40px)] w-px bg-border" aria-hidden="true" /> : null}
+                      <div key={`${activity.title}-${activity.time}`} className="relative flex gap-4 pb-5 last:pb-0">
+                        {index < auditActivities.length - 1 ? <span className="absolute left-5 top-10 h-[calc(100%-40px)] w-px bg-border" aria-hidden="true" /> : null}
                         <span className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
                           <Icon className="h-5 w-5" aria-hidden="true" />
                         </span>

@@ -19,6 +19,8 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
+import { safeFetch, safeFetchPaginated } from "@/lib/api-client";
+import type { ChatSessionDetail, DocumentDetail, DocumentListItem } from "@/types/api";
 
 const suggestedQuestions = [
   "What should I negotiate first?",
@@ -325,6 +327,9 @@ export default function AiChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [session, setSession] = useState<ChatSessionDetail | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<HTMLElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -332,6 +337,72 @@ export default function AiChatPage() {
   const messageIdRef = useRef(3);
 
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function resolveSessionId() {
+      const params = new URLSearchParams(window.location.search);
+      const directSessionId = params.get("sessionId");
+
+      if (directSessionId) {
+        return directSessionId;
+      }
+
+      const directDocumentId = params.get("documentId");
+      const documentId = directDocumentId ?? (await safeFetchPaginated<DocumentListItem>("/documents")).data[0]?.id;
+
+      if (!documentId) {
+        return null;
+      }
+
+      const document = await safeFetch<DocumentDetail>(`/documents/${documentId}`);
+      return document.chatSessions[0]?.id ?? null;
+    }
+
+    async function loadSession() {
+      setIsLoadingSession(true);
+
+      try {
+        const sessionId = await resolveSessionId();
+
+        if (!sessionId) {
+          throw new Error("No chat sessions are available.");
+        }
+
+        const sessionDetail = await safeFetch<ChatSessionDetail>(`/chat/sessions/${sessionId}`);
+
+        if (isMounted) {
+          const apiMessages = sessionDetail.messages.map((message) => ({
+            id: message.id,
+            role: message.role.toLowerCase() === "user" ? "user" : "assistant",
+            text: message.content
+          })) satisfies ChatMessage[];
+
+          setSession(sessionDetail);
+          setMessages(apiMessages.length > 0 ? apiMessages : initialMessages);
+          messageIdRef.current = apiMessages.length + 3;
+          setIsFallback(false);
+        }
+      } catch {
+        if (isMounted) {
+          setSession(null);
+          setMessages(initialMessages);
+          setIsFallback(true);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingSession(false);
+        }
+      }
+    }
+
+    loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasMountedRef.current) {
@@ -394,13 +465,13 @@ export default function AiChatPage() {
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <StatusBadge tone="ai">
                       <Sparkles className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-                      AI Ready
+                      {isFallback ? "Backend unavailable — showing demo data" : isLoadingSession ? "Loading session" : "AI Ready"}
                     </StatusBadge>
-                    <StatusBadge tone="info">Vendor DPA.pdf</StatusBadge>
+                    <StatusBadge tone="info">{session?.document?.title ?? "Vendor DPA.pdf"}</StatusBadge>
                   </div>
-                  <h1 className="text-2xl font-bold leading-tight text-foreground">Ask LexAI</h1>
+                  <h1 className="text-2xl font-bold leading-tight text-foreground">{session?.title ?? "Ask LexAI"}</h1>
                   <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                    Document-aware answers for Vendor Data Processing Agreement, grounded in clauses and risk findings.
+                    Document-aware answers for {session?.document?.title ?? "Vendor Data Processing Agreement"}, grounded in clauses and risk findings.
                   </p>
                 </div>
                 <div className="rounded-xl border border-[#8B5CF6]/25 bg-[#8B5CF6]/10 px-3 py-2 text-sm leading-5 text-muted-foreground xl:max-w-[300px] 2xl:max-w-[320px]">
@@ -473,17 +544,17 @@ export default function AiChatPage() {
                 </span>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B5CF6]">Active document</p>
-                  <h2 className="mt-1.5 text-lg font-semibold leading-tight text-foreground">Vendor Data Processing Agreement</h2>
+                  <h2 className="mt-1.5 text-lg font-semibold leading-tight text-foreground">{session?.document?.title ?? "Vendor Data Processing Agreement"}</h2>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 p-3">
                   <p className="text-xs font-medium text-[#FCD34D]">Risk</p>
-                  <p className="mt-1.5 text-lg font-semibold text-foreground">Medium</p>
+                  <p className="mt-1.5 text-lg font-semibold text-foreground">{(session?.document?.riskScore ?? 74) >= 80 ? "High" : (session?.document?.riskScore ?? 74) >= 50 ? "Medium" : "Low"}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-[#1F2937] p-3">
                   <p className="text-xs font-medium text-muted-foreground">Score</p>
-                  <p className="mt-1.5 text-lg font-semibold text-foreground">74 / 100</p>
+                  <p className="mt-1.5 text-lg font-semibold text-foreground">{session?.document?.riskScore ?? 74} / 100</p>
                 </div>
               </div>
               <Button asChild variant="outline" className="mt-4 w-full">

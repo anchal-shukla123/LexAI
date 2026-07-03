@@ -1,42 +1,138 @@
+"use client";
+
 import { ArrowRight, Clock3, FileText, ShieldAlert, Sparkles, Upload } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
+import { safeFetchPaginated } from "@/lib/api-client";
+import type { DocumentListItem } from "@/types/api";
 
-const documents = [
+type UiDocument = {
+  id?: string;
+  title: string;
+  type: string;
+  risk: string;
+  status: string;
+  updated: string;
+  href: string;
+};
+
+const fallbackDocuments: UiDocument[] = [
   {
     title: "Vendor Data Processing Agreement",
     type: "Commercial / Privacy",
     risk: "Medium risk",
     status: "Analysis ready",
-    updated: "Just now"
+    updated: "Just now",
+    href: "/contracts/demo-analysis"
   },
   {
     title: "Series A Subscription Agreement",
     type: "Financing",
     risk: "Medium risk",
     status: "Report ready",
-    updated: "12 min ago"
+    updated: "12 min ago",
+    href: "/contracts/demo-analysis"
   },
   {
     title: "Master Services Agreement",
     type: "Commercial",
     risk: "Low risk",
     status: "Reviewed",
-    updated: "1 hr ago"
+    updated: "1 hr ago",
+    href: "/contracts/demo-analysis"
   }
 ];
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function riskLabel(score: number | null) {
+  if (score === null) {
+    return "Not scored";
+  }
+
+  if (score >= 80) {
+    return "High risk";
+  }
+
+  if (score >= 50) {
+    return "Medium risk";
+  }
+
+  return "Low risk";
+}
+
+function fileType(document: DocumentListItem) {
+  const firstFile = document.files?.[0];
+  const extension = firstFile?.extension?.toUpperCase();
+  const size = firstFile ? `${Math.round(firstFile.sizeBytes / 1024)} KB` : null;
+
+  return [extension, size].filter(Boolean).join(" / ") || document.description || "Legal document";
+}
+
+function toUiDocument(document: DocumentListItem): UiDocument {
+  return {
+    id: document.id,
+    title: document.title,
+    type: fileType(document),
+    risk: riskLabel(document.riskScore),
+    status: document.status.replaceAll("_", " ").toLowerCase(),
+    updated: formatDate(document.createdAt),
+    href: `/contracts/demo-analysis?documentId=${document.id}`
+  };
+}
 
 function riskTone(risk: string) {
   if (risk.startsWith("Low")) {
     return "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]";
   }
 
+  if (risk.startsWith("High")) {
+    return "border-[#EF4444]/45 bg-[#EF4444]/10 text-[#FCA5A5]";
+  }
+
   return "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]";
 }
 
 export default function DocumentsPage() {
+  const [apiDocuments, setApiDocuments] = useState<DocumentListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    safeFetchPaginated<DocumentListItem>("/documents")
+      .then((response) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setApiDocuments(response.data);
+        setIsFallback(false);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsFallback(true);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const documents = useMemo(() => (apiDocuments.length > 0 ? apiDocuments.map(toUiDocument) : fallbackDocuments), [apiDocuments]);
+
   return (
     <DashboardShell>
       <div className="mx-auto max-w-[1440px] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
@@ -67,15 +163,22 @@ export default function DocumentsPage() {
                 <h2 className="mt-2 text-2xl font-bold leading-tight text-foreground">Recent documents</h2>
               </div>
               <span className="inline-flex min-h-7 w-fit items-center rounded-full border border-[#22C55E]/40 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#86EFAC]">
-                Frontend-only demo
+                {isFallback ? "Backend unavailable — showing demo data" : isLoading ? "Loading library" : "Backend data"}
               </span>
             </div>
 
             <div className="mt-5 grid gap-4">
+              {isLoading ? (
+                <div className="grid gap-4" aria-label="Loading documents">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="h-[92px] animate-pulse rounded-2xl border border-border bg-[#0D1117]/70" />
+                  ))}
+                </div>
+              ) : null}
               {documents.map((document) => (
                 <Link
-                  key={document.title}
-                  href="/contracts/demo-analysis"
+                  key={document.id ?? document.title}
+                  href={document.href}
                   className="group grid gap-4 rounded-2xl border border-border bg-[#0D1117]/70 p-4 transition duration-150 ease-out hover:-translate-y-1 hover:border-primary/45 hover:bg-[#1F2937]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(0,1fr)_auto]"
                 >
                   <span className="flex min-w-0 gap-4">
@@ -116,7 +219,7 @@ export default function DocumentsPage() {
                 </div>
               </div>
               <Button asChild className="mt-5 w-full">
-                <Link href="/contracts/demo-analysis">
+                <Link href={documents[0]?.href ?? "/contracts/demo-analysis"}>
                   View Analysis
                   <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
                 </Link>

@@ -24,12 +24,29 @@ import {
   WalletCards
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
+import { safeFetch, safeFetchPaginated } from "@/lib/api-client";
+import type { ReportDetail, ReportListItem } from "@/types/api";
 
-const heatmapCells = [
+type ReportContent = {
+  executiveSummary?: string;
+  riskScore?: number;
+  riskLevel?: string;
+  metrics?: {
+    clausesScanned?: number;
+    risksDetected?: number;
+    confidence?: number;
+    processingTime?: string;
+  };
+  heatmap?: Array<{ label: string; value: number; signal: string }>;
+  findings?: Array<{ title: string; severity: string; finding: string; action: string }>;
+  recommendedRedlines?: Array<{ title: string; change: string; why: string; priority: string }>;
+};
+
+const fallbackHeatmapCells = [
   { label: "Liability", value: 88, signal: "high" },
   { label: "Privacy", value: 76, signal: "medium" },
   { label: "Termination", value: 72, signal: "medium" },
@@ -38,7 +55,7 @@ const heatmapCells = [
   { label: "Audit", value: 28, signal: "low" }
 ];
 
-const findings = [
+const fallbackFindings = [
   {
     title: "Uncapped liability",
     severity: "High",
@@ -96,7 +113,7 @@ const clauses = [
   }
 ];
 
-const redlines = [
+const fallbackRedlines = [
   {
     title: "Add liability cap",
     change: "Insert a clear aggregate cap tied to fees or a negotiated monetary ceiling.",
@@ -121,16 +138,6 @@ const redlines = [
     why: "A defined timeline supports regulatory response and customer communication.",
     priority: "Medium"
   }
-];
-
-const processingDetails = [
-  { label: "Model mode", value: "Legal analysis mock", icon: Bot, progress: 100 },
-  { label: "Confidence", value: "91%", icon: ShieldCheck, progress: 91 },
-  { label: "Clauses scanned", value: "216", icon: FileText, progress: 100 },
-  { label: "Risks detected", value: "7", icon: AlertTriangle, progress: 70 },
-  { label: "Summary generated", value: "Yes", icon: Sparkles, progress: 100 },
-  { label: "Export status", value: "Ready", icon: BadgeCheck, progress: 100 },
-  { label: "Data handling", value: "Local frontend demo", icon: LockKeyhole, progress: 100 }
 ];
 
 function Badge({ children, tone }: { children: React.ReactNode; tone: "low" | "medium" | "high" | "ai" | "info" | "success" }) {
@@ -158,6 +165,21 @@ function riskTone(risk: string) {
   return "medium";
 }
 
+function isReportContent(value: unknown): value is ReportContent {
+  return typeof value === "object" && value !== null;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function titleCase(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description?: string; id: string }) {
   return (
     <div className="mb-5">
@@ -170,17 +192,20 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
   );
 }
 
-function RiskScoreRing() {
+function RiskScoreRing({ score = 74 }: { score?: number }) {
+  const boundedScore = Math.max(0, Math.min(100, score));
+  const degrees = Math.round((boundedScore / 100) * 360);
+
   return (
     <div
       className="relative grid h-40 w-40 shrink-0 place-items-center rounded-full shadow-[0_0_40px_rgba(245,158,11,0.24)] motion-safe:animate-[lexai-risk-fill_900ms_ease-out]"
-      style={{ background: "conic-gradient(#F59E0B 0deg 266deg, rgba(31,41,55,0.9) 266deg 360deg)" }}
+      style={{ background: `conic-gradient(#F59E0B 0deg ${degrees}deg, rgba(31,41,55,0.9) ${degrees}deg 360deg)` }}
       role="img"
-      aria-label="Risk score 74 out of 100, medium risk"
+      aria-label={`Risk score ${boundedScore} out of 100`}
     >
       <div className="grid h-[124px] w-[124px] place-items-center rounded-full border border-[#F59E0B]/25 bg-[#161B22]">
         <div className="text-center">
-          <p className="text-4xl font-bold leading-none text-foreground">74</p>
+          <p className="text-4xl font-bold leading-none text-foreground">{boundedScore}</p>
           <p className="mt-1 text-xs font-medium text-muted-foreground">/ 100</p>
         </div>
       </div>
@@ -191,6 +216,65 @@ function RiskScoreRing() {
 export default function DemoReportPage() {
   const [exportMessage, setExportMessage] = useState("");
   const [shareVisible, setShareVisible] = useState(false);
+  const [report, setReport] = useState<ReportDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadReport() {
+      setIsLoading(true);
+
+      try {
+        const requestedReportId = new URLSearchParams(window.location.search).get("reportId");
+        const reportId = requestedReportId ?? (await safeFetchPaginated<ReportListItem>("/reports")).data[0]?.id;
+
+        if (!reportId) {
+          throw new Error("No backend reports are available.");
+        }
+
+        const reportDetail = await safeFetch<ReportDetail>(`/reports/${reportId}`);
+
+        if (isMounted) {
+          setReport(reportDetail);
+          setIsFallback(false);
+        }
+      } catch {
+        if (isMounted) {
+          setReport(null);
+          setIsFallback(true);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadReport();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const content = useMemo<ReportContent>(() => (isReportContent(report?.content) ? report.content : {}), [report]);
+  const riskScore = content.riskScore ?? report?.riskScoreSnapshot ?? report?.document.riskScore ?? 74;
+  const riskLevel = content.riskLevel ?? (riskScore >= 80 ? "High" : riskScore >= 50 ? "Medium" : "Low");
+  const heatmapCells = content.heatmap?.length ? content.heatmap : fallbackHeatmapCells;
+  const findings = content.findings?.length ? content.findings : fallbackFindings;
+  const redlines = content.recommendedRedlines?.length ? content.recommendedRedlines : fallbackRedlines;
+  const processingDetails = [
+    { label: "Model mode", value: isFallback ? "Legal analysis mock" : "Backend snapshot", icon: Bot, progress: 100 },
+    { label: "Confidence", value: `${content.metrics?.confidence ?? 91}%`, icon: ShieldCheck, progress: content.metrics?.confidence ?? 91 },
+    { label: "Clauses scanned", value: String(content.metrics?.clausesScanned ?? 216), icon: FileText, progress: 100 },
+    { label: "Risks detected", value: String(content.metrics?.risksDetected ?? 7), icon: AlertTriangle, progress: Math.min(100, (content.metrics?.risksDetected ?? 7) * 10) },
+    { label: "Summary generated", value: "Yes", icon: Sparkles, progress: 100 },
+    { label: "Export status", value: report?.exportJobs[0]?.status ? titleCase(report.exportJobs[0].status) : "Ready", icon: BadgeCheck, progress: 100 },
+    { label: "Data handling", value: isFallback ? "Local frontend demo" : "Read-only API", icon: LockKeyhole, progress: 100 }
+  ];
+  const chatHref = report?.documentId ? `/ai-chat?documentId=${report.documentId}` : "/ai-chat";
 
   function prepareExport() {
     setExportMessage("Mock PDF export prepared.");
@@ -217,20 +301,20 @@ export default function DemoReportPage() {
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <Badge tone="success">
                   <BadgeCheck className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-                  Export ready
+                  {report?.status ? titleCase(report.status) : "Export ready"}
                 </Badge>
-                <Badge tone="info">Commercial / Privacy</Badge>
+                <Badge tone={isFallback ? "ai" : "info"}>{isFallback ? "Backend unavailable — showing demo data" : isLoading ? "Loading report" : "Backend report"}</Badge>
                 <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-border bg-[#1F2937] px-3 py-1 text-xs font-medium text-muted-foreground">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                  Generated: Just now
+                  Generated: {report?.createdAt ? formatDate(report.createdAt) : "Just now"}
                 </span>
               </div>
               <p className="text-sm font-medium text-muted-foreground">AI-generated legal intelligence report</p>
               <h1 id="report-title" className="mt-2 text-3xl font-bold leading-tight text-foreground sm:text-4xl">
-                Vendor Data Processing Agreement
+                {report?.title ?? "Vendor Data Processing Agreement"}
               </h1>
               <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                Executive-ready review with risk scoring, clause findings, recommended redlines, and export controls.
+                {report?.document.title ? `For ${report.document.title}. ` : ""}Executive-ready review with risk scoring, clause findings, recommended redlines, and export controls.
               </p>
             </div>
 
@@ -244,7 +328,7 @@ export default function DemoReportPage() {
                 Share Report
               </Button>
               <Button asChild variant="ghost" className="w-full">
-                <Link href="/ai-chat" aria-label="Open AI Chat for this report">
+                <Link href={chatHref} aria-label="Open AI Chat for this report">
                   <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
                   Open AI Chat
                 </Link>
@@ -264,7 +348,7 @@ export default function DemoReportPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-[#C4B5FD]">Secure report link copied.</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">lexai.app/reports/vendor-dpa-demo</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">lexai.app/reports/{report?.id ?? "vendor-dpa-demo"}</p>
                 </div>
                 <Link2 className="h-5 w-5 text-[#C4B5FD]" aria-hidden="true" />
               </div>
@@ -288,25 +372,25 @@ export default function DemoReportPage() {
                   </div>
                 </div>
                 <p className="max-w-5xl text-base leading-8 text-muted-foreground">
-                  LexAI found moderate contractual risk in this agreement. The main concerns relate to uncapped liability, ambiguous termination rights, missing security obligations, and limited indemnity protection. The agreement is usable, but several clauses should be reviewed before execution.
+                  {content.executiveSummary ?? report?.summarySnapshot ?? "LexAI found moderate contractual risk in this agreement. The main concerns relate to uncapped liability, ambiguous termination rights, missing security obligations, and limited indemnity protection. The agreement is usable, but several clauses should be reviewed before execution."}
                 </p>
               </div>
             </section>
 
             <section aria-labelledby="risk-snapshot-title">
-              <SectionHeading id="risk-snapshot-title" eyebrow="Risk snapshot" title="Medium risk, export-ready" description="The strongest signals are concentrated in liability, privacy, security, and termination." />
+              <SectionHeading id="risk-snapshot-title" eyebrow="Risk snapshot" title={`${riskLevel} risk, export-ready`} description="The strongest signals are concentrated in liability, privacy, security, and termination." />
               <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <div className="rounded-2xl border border-[#F59E0B]/35 bg-[#161B22]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
                   <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                    <RiskScoreRing />
+                    <RiskScoreRing score={riskScore} />
                     <div className="min-w-0">
-                      <Badge tone="medium">Medium risk</Badge>
-                      <p className="mt-4 text-2xl font-bold leading-tight text-foreground">74 / 100</p>
+                      <Badge tone={riskTone(riskLevel)}>{riskLevel} risk</Badge>
+                      <p className="mt-4 text-2xl font-bold leading-tight text-foreground">{riskScore} / 100</p>
                       <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         {[
-                          ["Risks detected", "7"],
-                          ["Clauses scanned", "216"],
-                          ["Processing time", "30s"]
+                          ["Risks detected", String(content.metrics?.risksDetected ?? 7)],
+                          ["Clauses scanned", String(content.metrics?.clausesScanned ?? 216)],
+                          ["Processing time", content.metrics?.processingTime ?? "30s"]
                         ].map(([label, value]) => (
                           <div key={label} className="rounded-xl border border-border bg-[#1F2937] p-3">
                             <p className="text-xs font-medium text-muted-foreground">{label}</p>
@@ -382,7 +466,7 @@ export default function DemoReportPage() {
             </section>
 
             <section aria-labelledby="redlines-title">
-              <SectionHeading id="redlines-title" eyebrow="Recommended redlines" title="Action-oriented negotiation changes" description="These are mock recommendations intended to show how an exportable report will guide next steps." />
+              <SectionHeading id="redlines-title" eyebrow="Recommended redlines" title="Action-oriented negotiation changes" description="These recommendations show how an exportable report will guide next steps." />
               <div className="space-y-4">
                 {redlines.map((redline) => (
                   <article key={redline.title} className="rounded-2xl border border-[#22C55E]/25 bg-[#161B22]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
@@ -428,7 +512,7 @@ export default function DemoReportPage() {
                   Share Report
                 </Button>
                 <Button asChild variant="ghost" className="w-full">
-                  <Link href="/ai-chat" aria-label="Open AI Chat from report status panel">
+                  <Link href={chatHref} aria-label="Open AI Chat from report status panel">
                     <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
                     Open AI Chat
                   </Link>
