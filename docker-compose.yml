@@ -1,19 +1,45 @@
-version: '3.8'
 services:
-  app:
-    build: ./backend
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - frontend/.env.example
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     env_file:
-      - .env
-  db:
-    image: postgres:15
+      - backend/.env.example
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/lexai?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: lexai
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lexai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
 
 volumes:
-  db-data:
+  postgres-data:
