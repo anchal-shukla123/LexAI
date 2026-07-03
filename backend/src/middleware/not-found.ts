@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 
-import { AppError } from "./error-handler.js";
+import { AppError } from "../utils/app-error.js";
 
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
-  next(new AppError(`Route not found: ${req.method} ${req.originalUrl}`, 404));
+  next(new AppError("NOT_FOUND", `Route not found: ${req.method} ${req.originalUrl}`));
 };

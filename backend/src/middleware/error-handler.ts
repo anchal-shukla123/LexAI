@@ -1,26 +1,21 @@
 import type { ErrorRequestHandler } from "express";
+import { ZodError } from "zod";
 
-export class AppError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode = 500
-  ) {
-    super(message);
-  }
-}
+import { AppError } from "../utils/app-error.js";
+import { fail } from "../utils/response.js";
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-  const statusCode = error instanceof AppError ? error.statusCode : 500;
-  const message = statusCode === 500 ? "Internal server error" : error.message;
-
-  if (statusCode === 500) {
-    console.error(error);
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json(fail(error.code, error.message, error.details));
+    return;
   }
 
-  res.status(statusCode).json({
-    error: {
-      message,
-      statusCode
-    }
-  });
+  if (error instanceof ZodError) {
+    res.status(400).json(fail("VALIDATION_ERROR", "Invalid request.", error.issues));
+    return;
+  }
+
+  console.error(error);
+
+  res.status(500).json(fail("INTERNAL_ERROR", "Internal server error."));
 };

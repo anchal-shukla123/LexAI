@@ -1,17 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/prisma.js";
 
-let prisma: PrismaClient | undefined;
+export { prisma };
 
 export function getPrismaClient() {
-  prisma ??= new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["error"]
-  });
-
   return prisma;
 }
 
 export async function disconnectPrisma() {
-  if (prisma) {
-    await prisma.$disconnect();
-  }
+  await prisma.$disconnect();
 }

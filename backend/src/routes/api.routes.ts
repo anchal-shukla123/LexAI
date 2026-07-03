@@ -1,5 +1,10 @@
 import { Router } from "express";
 
+import { chatRouter } from "../modules/chat/chat.routes.js";
+import { demoRouter } from "../modules/demo/demo.routes.js";
+import { documentsRouter } from "../modules/documents/documents.routes.js";
+import { reportsRouter } from "../modules/reports/reports.routes.js";
+
 export const apiRouter = Router();
 
 apiRouter.get("/", (_req, res) => {
@@ -9,3 +14,8 @@ apiRouter.get("/", (_req, res) => {
     status: "ready"
   });
 });
+
+apiRouter.use("/demo", demoRouter);
+apiRouter.use("/documents", documentsRouter);
+apiRouter.use("/reports", reportsRouter);
+apiRouter.use("/chat", chatRouter);
