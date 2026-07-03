@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AlertTriangle,
   ArrowLeft,
@@ -11,6 +13,7 @@ import {
   FileText,
   Gavel,
   Info,
+  Loader2,
   LockKeyhole,
   MessageSquareText,
   RefreshCw,
@@ -21,13 +24,45 @@ import {
   WalletCards
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
+import { safeFetch } from "@/lib/api-client";
+import type { DocumentDetail } from "@/types/api";
+
+type BadgeTone = "low" | "medium" | "warning" | "high" | "ai" | "info";
+
+type ClauseCard = {
+  title: string;
+  status: string;
+  summary: string;
+  icon: typeof Scale;
+  tone: Extract<BadgeTone, "low" | "medium" | "warning" | "high">;
+};
+
+type RiskCard = {
+  title: string;
+  severity: string;
+  explanation: string;
+  action: string;
+};
+
+type RecommendationCard = {
+  title: string;
+  change: string;
+  why: string;
+};
+
+type HeatmapCell = {
+  label: string;
+  value: number;
+  tone: "low" | "medium" | "high";
+};
 
 const riskCategories = ["Liability", "Privacy", "Termination", "Payment"];
 
-const heatmapCells = [
+const fallbackHeatmapCells: HeatmapCell[] = [
   { label: "Liability", value: 88, tone: "high" },
   { label: "Privacy", value: 76, tone: "medium" },
   { label: "Termination", value: 72, tone: "medium" },
@@ -38,7 +73,7 @@ const heatmapCells = [
   { label: "Notices", value: 61, tone: "medium" }
 ];
 
-const keyClauses = [
+const fallbackKeyClauses: ClauseCard[] = [
   {
     title: "Liability",
     status: "Needs Review",
@@ -69,7 +104,7 @@ const keyClauses = [
   }
 ];
 
-const detectedRisks = [
+const fallbackDetectedRisks: RiskCard[] = [
   {
     title: "Uncapped liability",
     severity: "High",
@@ -96,7 +131,7 @@ const detectedRisks = [
   }
 ];
 
-const recommendations = [
+const fallbackRecommendations: RecommendationCard[] = [
   {
     title: "Add liability cap",
     change: "Insert a clear aggregate cap and define exceptions deliberately.",
@@ -119,16 +154,95 @@ const recommendations = [
   }
 ];
 
-const metadata = [
-  { label: "Clauses scanned", value: "216", icon: FileText, progress: 100 },
-  { label: "Risks detected", value: "7", icon: AlertTriangle, progress: 70 },
-  { label: "Summary generated", value: "Yes", icon: Sparkles, progress: 100 },
-  { label: "Confidence", value: "91%", icon: ShieldCheck, progress: 91 },
-  { label: "Processing time", value: "30s", icon: Timer, progress: 62 },
-  { label: "Report status", value: "Export ready", icon: BadgeCheck, progress: 100 }
-];
+function titleCase(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
-function StatusBadge({ children, tone }: { children: React.ReactNode; tone: "low" | "medium" | "warning" | "high" | "ai" | "info" }) {
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function riskLevel(score: number) {
+  if (score >= 80) {
+    return "High";
+  }
+
+  if (score >= 50) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
+function riskToneFromLevel(level: string): Extract<BadgeTone, "low" | "medium" | "high"> {
+  const normalized = level.toLowerCase();
+
+  if (normalized.includes("high") || normalized.includes("critical")) {
+    return "high";
+  }
+
+  if (normalized.includes("low")) {
+    return "low";
+  }
+
+  return "medium";
+}
+
+function clauseIconFor(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes("payment") || normalized.includes("fee") || normalized.includes("billing")) {
+    return WalletCards;
+  }
+
+  if (normalized.includes("termination") || normalized.includes("law") || normalized.includes("dispute")) {
+    return Gavel;
+  }
+
+  if (normalized.includes("privacy") || normalized.includes("data") || normalized.includes("security")) {
+    return LockKeyhole;
+  }
+
+  return Scale;
+}
+
+function progressFromCount(count: number, max = 10) {
+  return Math.min(100, Math.max(8, Math.round((count / max) * 100)));
+}
+
+function confidencePercent(value: number) {
+  return Math.round(value <= 1 ? value * 100 : value);
+}
+
+function averageConfidence(document: DocumentDetail | null) {
+  const values = [
+    ...(document?.clauseFindings ?? []).map((finding) => finding.confidence),
+    ...(document?.riskFindings ?? []).map((finding) => finding.confidence)
+  ].filter((value): value is number => typeof value === "number");
+
+  if (values.length === 0) {
+    return 91;
+  }
+
+  return confidencePercent(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function processingTime(document: DocumentDetail | null) {
+  const startedAt = document?.currentAnalysisJob?.startedAt;
+  const completedAt = document?.currentAnalysisJob?.completedAt;
+
+  if (!startedAt || !completedAt) {
+    return "30s";
+  }
+
+  const seconds = Math.max(1, Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000));
+  return seconds >= 60 ? `${Math.round(seconds / 60)}m` : `${seconds}s`;
+}
+
+function StatusBadge({ children, tone }: { children: React.ReactNode; tone: BadgeTone }) {
   const tones = {
     low: "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]",
     medium: "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]",
@@ -146,7 +260,7 @@ function StatusBadge({ children, tone }: { children: React.ReactNode; tone: "low
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
-  return <StatusBadge tone={severity === "High" ? "high" : "medium"}>{severity} severity</StatusBadge>;
+  return <StatusBadge tone={riskToneFromLevel(severity)}>{severity} severity</StatusBadge>;
 }
 
 function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description?: string; id?: string }) {
@@ -161,17 +275,20 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
   );
 }
 
-function RiskScoreRing() {
+function RiskScoreRing({ score }: { score: number }) {
+  const boundedScore = Math.max(0, Math.min(100, Math.round(score)));
+  const degrees = Math.round((boundedScore / 100) * 360);
+
   return (
     <div
       className="relative grid h-40 w-40 shrink-0 place-items-center rounded-full shadow-[0_0_40px_rgba(245,158,11,0.24)] motion-safe:animate-[lexai-risk-fill_900ms_ease-out]"
-      style={{ background: "conic-gradient(#F59E0B 0deg 266deg, rgba(45,55,72,0.8) 266deg 360deg)" }}
+      style={{ background: `conic-gradient(#F59E0B 0deg ${degrees}deg, rgba(45,55,72,0.8) ${degrees}deg 360deg)` }}
       role="img"
-      aria-label="Risk score 74 out of 100, medium risk"
+      aria-label={`Risk score ${boundedScore} out of 100`}
     >
       <div className="grid h-[124px] w-[124px] place-items-center rounded-full border border-[#F59E0B]/25 bg-[#161B22]">
         <div className="text-center">
-          <p className="text-4xl font-bold leading-none text-foreground">74</p>
+          <p className="text-4xl font-bold leading-none text-foreground">{boundedScore}</p>
           <p className="mt-1 text-xs font-medium text-muted-foreground">/ 100</p>
         </div>
       </div>
@@ -180,6 +297,169 @@ function RiskScoreRing() {
 }
 
 export default function DemoAnalysisPage() {
+  const [document, setDocument] = useState<DocumentDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFallback, setIsFallback] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const documentId = new URLSearchParams(window.location.search).get("documentId");
+
+    if (!documentId) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    async function loadDocument() {
+      setIsLoading(true);
+
+      try {
+        const documentDetail = await safeFetch<DocumentDetail>(`/documents/${documentId}`);
+
+        if (isMounted) {
+          setDocument(documentDetail);
+          setIsFallback(false);
+        }
+      } catch {
+        if (isMounted) {
+          setDocument(null);
+          setIsFallback(true);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadDocument();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const riskScore = document?.riskScore ?? 74;
+  const riskLabel = riskLevel(riskScore);
+  const documentTitle = document?.title ?? "Vendor Data Processing Agreement";
+  const documentStatus = document?.status ? titleCase(document.status) : "Analysis complete";
+  const summary = document?.summary ?? "Medium risk. Several clauses require review before signing.";
+  const executiveSummary =
+    document?.summary ??
+    "LexAI found moderate contractual risk in this agreement. The main concerns relate to uncapped liability, unclear termination rights, and limited data processing safeguards. The agreement is usable, but should be reviewed before execution.";
+  const chatHref = document?.chatSessions[0]?.id ? `/ai-chat?sessionId=${document.chatSessions[0].id}` : "/ai-chat";
+  const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
+  const lastAnalyzed = document?.currentAnalysisJob?.completedAt ?? document?.updatedAt ?? document?.createdAt;
+  const activeRiskCategories = useMemo(() => {
+    if (!document) {
+      return riskCategories;
+    }
+
+    const categories = [
+      ...document.clauseFindings.map((clause) => clause.category),
+      ...document.riskFindings.map((risk) => risk.riskLevel ? `${titleCase(risk.riskLevel)} risk` : risk.title)
+    ].filter(Boolean);
+
+    return Array.from(new Set(categories)).slice(0, 4);
+  }, [document]);
+
+  const clauseCards = useMemo<ClauseCard[]>(() => {
+    if (!document) {
+      return fallbackKeyClauses;
+    }
+
+    if (document.clauseFindings.length === 0) {
+      return [];
+    }
+
+    return document.clauseFindings.map((clause) => {
+      const confidence = clause.confidence !== null ? confidencePercent(clause.confidence) : null;
+      const tone = confidence !== null && confidence < 50 ? "low" : confidence !== null && confidence >= 80 ? "warning" : "medium";
+
+      return {
+        title: clause.title || titleCase(clause.category),
+        status: confidence !== null ? `${confidence}% confidence` : titleCase(clause.category),
+        summary: clause.plainLanguageSummary ?? clause.sourceText ?? "Clause finding returned by the backend for review.",
+        icon: clauseIconFor(`${clause.category} ${clause.title}`),
+        tone
+      };
+    });
+  }, [document]);
+
+  const riskCards = useMemo<RiskCard[]>(() => {
+    if (!document) {
+      return fallbackDetectedRisks;
+    }
+
+    if (document.riskFindings.length === 0) {
+      return [];
+    }
+
+    return document.riskFindings.map((risk) => ({
+      title: risk.title,
+      severity: titleCase(risk.riskLevel),
+      explanation: risk.description,
+      action: risk.impact ?? risk.evidence ?? "Review this finding with the legal team before execution."
+    }));
+  }, [document]);
+
+  const recommendationCards = useMemo<RecommendationCard[]>(() => {
+    if (!document) {
+      return fallbackRecommendations;
+    }
+
+    if (document.recommendations.length === 0) {
+      return [];
+    }
+
+    return document.recommendations.map((recommendation) => ({
+      title: recommendation.title,
+      change: recommendation.description,
+      why: `Priority ${recommendation.priority}. Review and apply this recommendation before signature.`
+    }));
+  }, [document]);
+
+  const heatmapCells = useMemo<HeatmapCell[]>(() => {
+    if (!document) {
+      return fallbackHeatmapCells;
+    }
+
+    const riskCells = document.riskFindings.map((risk) => {
+      const tone = riskToneFromLevel(risk.riskLevel);
+      const fallbackValue = tone === "high" ? 88 : tone === "low" ? 34 : 68;
+
+      return {
+        label: risk.title,
+        value: risk.confidence !== null ? confidencePercent(risk.confidence) : fallbackValue,
+        tone
+      };
+    });
+
+    const clauseCells = document.clauseFindings.map((clause) => {
+      const value = clause.confidence !== null ? confidencePercent(clause.confidence) : 61;
+
+      return {
+        label: clause.category || clause.title,
+        value,
+        tone: value >= 80 ? "high" : value >= 50 ? "medium" : "low"
+      } satisfies HeatmapCell;
+    });
+
+    return [...riskCells, ...clauseCells].slice(0, 8);
+  }, [document]);
+
+  const processingMetadata = [
+    { label: "Clauses scanned", value: String(document ? document.clauseFindings.length : 216), icon: FileText, progress: document ? progressFromCount(document.clauseFindings.length, 8) : 100 },
+    { label: "Risks detected", value: String(document ? document.riskFindings.length : 7), icon: AlertTriangle, progress: document ? progressFromCount(document.riskFindings.length, 8) : 70 },
+    { label: "Summary generated", value: document ? (document.summary ? "Yes" : "No") : "Yes", icon: Sparkles, progress: document?.summary === null ? 20 : 100 },
+    { label: "Confidence", value: `${averageConfidence(document)}%`, icon: ShieldCheck, progress: averageConfidence(document) },
+    { label: "Processing time", value: processingTime(document), icon: Timer, progress: 62 },
+    { label: "Analysis job", value: document?.currentAnalysisJob?.status ? titleCase(document.currentAnalysisJob.status) : "Complete", icon: Bot, progress: 100 },
+    { label: "Report status", value: document?.reports[0]?.status ? titleCase(document.reports[0].status) : "Export ready", icon: BadgeCheck, progress: 100 },
+    { label: "Chat sessions", value: String(document ? document.chatSessions.length : 1), icon: MessageSquareText, progress: document ? progressFromCount(document.chatSessions.length, 4) : 100 }
+  ];
+
   return (
     <DashboardShell>
       <div className="mx-auto max-w-[1440px] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
@@ -199,33 +479,34 @@ export default function DemoAnalysisPage() {
               <div className="max-w-4xl">
                 <div className="mb-4 flex flex-wrap items-center gap-3">
                   <StatusBadge tone="ai">
-                    <Sparkles className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-                    Analysis complete
+                    {isLoading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="mr-2 h-3.5 w-3.5" aria-hidden="true" />}
+                    {isLoading ? "Loading analysis" : documentStatus}
                   </StatusBadge>
-                  <StatusBadge tone="info">Commercial / Privacy</StatusBadge>
+                  {isFallback ? <StatusBadge tone="warning">Backend unavailable — showing demo analysis</StatusBadge> : null}
+                  <StatusBadge tone="info">{document?.description ?? "Commercial / Privacy"}</StatusBadge>
                   <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-border bg-[#1F2937] px-3 py-1 text-xs font-medium text-muted-foreground">
                     <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Last analyzed: Just now
+                    Last analyzed: {lastAnalyzed ? formatDate(lastAnalyzed) : "Just now"}
                   </span>
                 </div>
                 <p className="text-sm font-medium text-muted-foreground">Document</p>
                 <h1 id="document-header-title" className="mt-2 text-3xl font-bold leading-tight text-foreground sm:text-4xl">
-                  Vendor Data Processing Agreement
+                  {documentTitle}
                 </h1>
                 <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                  Medium risk. Several clauses require review before signing.
+                  {summary}
                 </p>
               </div>
 
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row xl:pt-2">
                 <Button asChild className="w-full sm:w-auto">
-                  <Link href="/ai-chat" aria-label="Open AI Chat for Vendor Data Processing Agreement">
+                  <Link href={chatHref} aria-label={`Open AI Chat for ${documentTitle}`}>
                     <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
                     Open AI Chat
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <Link href="/reports/demo-report" aria-label="Export analysis report">
+                  <Link href={reportHref} aria-label="Export analysis report">
                     <Download className="mr-2 h-5 w-5" aria-hidden="true" />
                     Export Report
                   </Link>
@@ -241,24 +522,24 @@ export default function DemoAnalysisPage() {
               <SectionHeading
                 id="risk-overview-title"
                 eyebrow="Risk overview"
-                title="Medium contractual risk"
+                title={`${riskLabel} contractual risk`}
                 description="LexAI grouped the strongest signals by negotiation priority so legal and business teams can focus on the highest-impact changes first."
               />
               <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <div className="rounded-2xl border border-[#F59E0B]/35 bg-[#161B22]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.24)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[#F59E0B]/60">
                   <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                    <RiskScoreRing />
+                    <RiskScoreRing score={riskScore} />
                     <div>
                       <div className="flex flex-wrap items-center gap-3">
-                        <StatusBadge tone="medium">Medium risk</StatusBadge>
+                        <StatusBadge tone={riskToneFromLevel(riskLabel)}>{riskLabel} risk</StatusBadge>
                         <span className="text-sm font-medium text-muted-foreground">Risk Score</span>
                       </div>
-                      <p className="mt-4 text-2xl font-bold leading-tight text-foreground">74 / 100</p>
+                      <p className="mt-4 text-2xl font-bold leading-tight text-foreground">{riskScore} / 100</p>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                        Medium risk. Several clauses require review before signing.
+                        {summary}
                       </p>
                       <div className="mt-5 flex flex-wrap gap-2" aria-label="Risk categories">
-                        {riskCategories.map((category) => (
+                        {activeRiskCategories.map((category) => (
                           <span key={category} className="rounded-full border border-border bg-[#1F2937] px-3 py-1 text-xs font-medium text-muted-foreground">
                             {category}
                           </span>
@@ -273,10 +554,11 @@ export default function DemoAnalysisPage() {
                     <h3 className="text-xl font-semibold leading-tight text-foreground">
                       Risk heatmap
                     </h3>
-                    <StatusBadge tone="info">8 categories</StatusBadge>
+                    <StatusBadge tone="info">{heatmapCells.length || fallbackHeatmapCells.length} categories</StatusBadge>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {heatmapCells.map((cell) => {
+                  {heatmapCells.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {heatmapCells.map((cell) => {
                       const toneClass =
                         cell.tone === "high"
                           ? "border-[#EF4444]/45 bg-[#EF4444]/15 text-[#FCA5A5]"
@@ -291,8 +573,13 @@ export default function DemoAnalysisPage() {
                           <p className="mt-1 text-xs font-medium text-current">{cell.tone} signal</p>
                         </div>
                       );
-                    })}
-                  </div>
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-border bg-[#1F2937] p-4 text-sm leading-6 text-muted-foreground">
+                      Backend document loaded, but no clause or risk signals have been recorded yet.
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -312,9 +599,7 @@ export default function DemoAnalysisPage() {
                   </div>
                 </div>
                 <p className="max-w-5xl text-base leading-8 text-muted-foreground">
-                  LexAI found moderate contractual risk in this agreement. The main concerns relate to uncapped liability, unclear
-                  termination rights, and limited data processing safeguards. The agreement is usable, but should be reviewed before
-                  execution.
+                  {executiveSummary}
                 </p>
               </div>
             </section>
@@ -326,8 +611,9 @@ export default function DemoAnalysisPage() {
                 title="Clauses requiring business review"
                 description="Each clause card highlights the issue, risk state, and the next review action."
               />
-              <div className="grid gap-4 md:grid-cols-2">
-                {keyClauses.map((clause) => {
+              {clauseCards.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {clauseCards.map((clause) => {
                   const Icon = clause.icon;
 
                   return (
@@ -339,7 +625,7 @@ export default function DemoAnalysisPage() {
                         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#1F2937] text-primary">
                           <Icon className="h-5 w-5" aria-hidden="true" />
                         </span>
-                        <StatusBadge tone={clause.tone as "low" | "medium" | "warning"}>{clause.status}</StatusBadge>
+                        <StatusBadge tone={clause.tone}>{clause.status}</StatusBadge>
                       </div>
                       <h3 className="mt-5 text-xl font-semibold leading-tight text-foreground">{clause.title}</h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">{clause.summary}</p>
@@ -353,8 +639,13 @@ export default function DemoAnalysisPage() {
                       </button>
                     </article>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border bg-[#161B22]/95 p-5 text-sm leading-6 text-muted-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                  Backend document loaded, but no clause findings have been recorded yet.
+                </div>
+              )}
             </section>
 
             <section aria-labelledby="risks-title">
@@ -364,8 +655,9 @@ export default function DemoAnalysisPage() {
                 title="Prioritized negotiation risks"
                 description="High and medium severity risks are ordered by likely contract impact."
               />
-              <div className="space-y-4">
-                {detectedRisks.map((risk) => (
+              {riskCards.length > 0 ? (
+                <div className="space-y-4">
+                  {riskCards.map((risk) => (
                   <article
                     key={risk.title}
                     className="rounded-2xl border border-border bg-[#161B22]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[#EF4444]/45"
@@ -382,8 +674,13 @@ export default function DemoAnalysisPage() {
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{risk.action}</p>
                     </div>
                   </article>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border bg-[#161B22]/95 p-5 text-sm leading-6 text-muted-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                  Backend document loaded, but no risk findings have been recorded yet.
+                </div>
+              )}
             </section>
 
             <section aria-labelledby="recommendations-title">
@@ -393,8 +690,9 @@ export default function DemoAnalysisPage() {
                 title="Recommended redlines"
                 description="Action-oriented changes LexAI would raise before execution."
               />
-              <div className="grid gap-4 md:grid-cols-2">
-                {recommendations.map((recommendation) => (
+              {recommendationCards.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {recommendationCards.map((recommendation) => (
                   <article
                     key={recommendation.title}
                     className="rounded-2xl border border-[#22C55E]/25 bg-[#161B22]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[#22C55E]/45"
@@ -412,8 +710,13 @@ export default function DemoAnalysisPage() {
                       </div>
                     </div>
                   </article>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border bg-[#161B22]/95 p-5 text-sm leading-6 text-muted-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                  Backend document loaded, but no recommendations have been recorded yet.
+                </div>
+              )}
             </section>
           </div>
 
@@ -436,13 +739,13 @@ export default function DemoAnalysisPage() {
 
               <div className="mt-5 flex flex-col gap-3">
                 <Button asChild className="w-full">
-                  <Link href="/ai-chat" aria-label="Open AI Chat from action panel">
+                  <Link href={chatHref} aria-label="Open AI Chat from action panel">
                     <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
                     Open AI Chat
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full">
-                  <Link href="/reports/demo-report" aria-label="Export report from action panel">
+                  <Link href={reportHref} aria-label="Export report from action panel">
                     <Download className="mr-2 h-5 w-5" aria-hidden="true" />
                     Export Report
                   </Link>
@@ -450,7 +753,7 @@ export default function DemoAnalysisPage() {
                 <Button asChild variant="ghost" className="w-full">
                   <Link href="/upload" aria-label="Upload another document">
                     <RefreshCw className="mr-2 h-5 w-5" aria-hidden="true" />
-                    Upload Contract
+                    Upload another document
                   </Link>
                 </Button>
               </div>
@@ -466,7 +769,7 @@ export default function DemoAnalysisPage() {
               </div>
 
               <div className="space-y-4">
-                {metadata.map((item) => {
+                {processingMetadata.map((item) => {
                   const Icon = item.icon;
 
                   return (
@@ -493,7 +796,9 @@ export default function DemoAnalysisPage() {
                 <div>
                   <h2 className="text-base font-semibold leading-tight text-foreground">Report status</h2>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Export ready with summary, clause findings, risks, and recommended negotiation actions.
+                    {document?.reports[0]?.title
+                      ? `${document.reports[0].title} is linked with summary, clause findings, risks, and recommended negotiation actions.`
+                      : "Export ready with summary, clause findings, risks, and recommended negotiation actions."}
                   </p>
                 </div>
               </div>
