@@ -84,6 +84,70 @@ After switching Node versions, reinstall dependencies if the generated Prisma en
 npm.cmd install
 ```
 
+## Fix Prisma Seed on Windows ARM64
+
+On Windows ARM64, Node 24 can cause a Prisma query engine DLL mismatch. The seed failure can look like this:
+
+```text
+query_engine-windows.dll.node is not a valid Win32 application
+```
+
+LexAI should use Node 22 LTS. Other projects can still use Node 24 through nvm-windows. nvm-windows switches the active Node version globally for the current Windows environment and new terminals, so before working on another project, run `nvm use 24` if that project needs Node 24.
+
+This fix should only clean and reinstall dependencies inside LexAI. Do not delete or modify other project folders. Do not remove global npm packages unless absolutely necessary.
+
+### Install nvm-windows
+
+Do not delete or modify other project folders. Uninstall an existing global Node.js installation only if required before installing nvm-windows.
+
+1. Install nvm-windows.
+2. Open a new PowerShell window as Administrator.
+3. Install the Node versions needed on this machine:
+
+```powershell
+nvm install 22
+nvm install 24
+cd C:\ApexGroup\Products\LexAI
+nvm use 22
+node -v
+```
+
+For other projects that need Node 24:
+
+```powershell
+cd C:\Path\To\OtherProject
+nvm use 24
+node -v
+```
+
+### Clean and Reinstall LexAI Dependencies Only
+
+Run these commands only after switching to Node 22. These cleanup commands must only target LexAI. Do not run cleanup commands from any other project folder.
+
+```powershell
+cd C:\ApexGroup\Products\LexAI
+nvm use 22
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Recurse -Force backend\node_modules -ErrorAction SilentlyContinue
+Remove-Item -Force package-lock.json
+npm install
+npm.cmd run prisma:generate --workspace backend
+npm.cmd run db:validate --workspace backend
+npm.cmd run db:seed --workspace backend
+npm.cmd run typecheck --workspace backend
+npm.cmd run prisma:studio --workspace backend
+```
+
+The migration already succeeded, so do not rerun migration unless the Prisma schema changes. If seed fails again, capture the exact error output before changing anything else.
+
+### Safety Checklist
+
+- Before working on LexAI, run `nvm use 22`.
+- Before working on Node 24 projects, run `nvm use 24`.
+- Confirm the active version with `node -v`.
+- Each project keeps its own `node_modules` after `npm install`.
+- Only delete `node_modules` inside the project you are currently fixing.
+
 ## Prisma Workflow
 
 Use `npm.cmd` in Windows PowerShell because the `npm.ps1` shim can be blocked by execution policy.
@@ -148,13 +212,17 @@ query_engine-windows.dll.node is not a valid Win32 application
 
 Fix:
 
-1. Switch to Node 22 LTS.
-2. Delete `node_modules`.
-3. Reinstall packages.
-4. Regenerate Prisma Client.
+1. Follow the "Fix Prisma Seed on Windows ARM64" section above.
+2. Switch LexAI to Node 22 LTS with nvm-windows.
+3. Delete and reinstall dependencies inside `C:\ApexGroup\Products\LexAI` only.
+4. Regenerate Prisma Client and rerun seed.
 
 ```powershell
+cd C:\ApexGroup\Products\LexAI
+nvm use 22
 Remove-Item -Recurse -Force node_modules
+Remove-Item -Recurse -Force backend\node_modules -ErrorAction SilentlyContinue
+Remove-Item -Force package-lock.json
 npm.cmd install
 npm.cmd run prisma:generate --workspace backend
 ```
@@ -162,6 +230,7 @@ npm.cmd run prisma:generate --workspace backend
 Then rerun:
 
 ```powershell
-npm.cmd run prisma:migrate --workspace backend -- --name init
+npm.cmd run db:validate --workspace backend
 npm.cmd run db:seed --workspace backend
+npm.cmd run typecheck --workspace backend
 ```
