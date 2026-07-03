@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: |
+          if [ -f frontend/package.json ]; then (cd frontend && npm ci); fi
+          if [ -f backend/package.json ]; then (cd backend && npm ci); fi
+      - name: Lint
+        run: echo "Add lint/test steps as needed"
