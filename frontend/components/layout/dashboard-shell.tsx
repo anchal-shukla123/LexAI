@@ -111,8 +111,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const showMobileUploadShortcut = pathname !== "/contracts/demo-analysis";
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -208,11 +210,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
 
-      <Button asChild aria-label="Upload contract" className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full px-0 shadow-[0_16px_48px_rgba(59,130,246,0.34)] sm:hidden">
-        <Link href="/upload">
-          <Plus className="h-6 w-6" aria-hidden="true" />
-        </Link>
-      </Button>
+      {showMobileUploadShortcut ? (
+        <Button asChild aria-label="Upload contract" className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full px-0 shadow-[0_16px_48px_rgba(59,130,246,0.34)] sm:hidden">
+          <Link href="/upload">
+            <Plus className="h-6 w-6" aria-hidden="true" />
+          </Link>
+        </Button>
+      ) : null}
     </div>
   );
 }
