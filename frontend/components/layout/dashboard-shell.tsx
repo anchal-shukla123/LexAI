@@ -27,16 +27,16 @@ import { Input } from "@/components/ui/input";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
-  { label: "Documents", href: "/dashboard/documents", icon: FileText },
+  { label: "Documents", href: "/documents", icon: FileText },
   { label: "Upload", href: "/upload", icon: Upload },
-  { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquareText, ai: true },
-  { label: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings }
+  { label: "AI Chat", href: "/ai-chat", icon: MessageSquareText, ai: true },
+  { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "Settings", href: "/settings", icon: Settings }
 ];
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/dashboard") {
-    return pathname === href;
+    return pathname === href || pathname.startsWith("/contracts/");
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -114,10 +114,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const showMobileUploadShortcut = pathname !== "/contracts/demo-analysis";
+  const showMobileUploadShortcut = !["/contracts/demo-analysis", "/ai-chat"].includes(pathname);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+    <div className="relative min-h-screen overflow-x-clip bg-background text-foreground">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_24%_8%,rgba(59,130,246,0.16),transparent_28rem),radial-gradient(circle_at_82%_18%,rgba(139,92,246,0.12),transparent_26rem),linear-gradient(rgba(248,250,252,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(248,250,252,0.025)_1px,transparent_1px)] bg-[size:auto,auto,64px_64px,64px_64px]" />
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">
         <Sidebar />
@@ -188,7 +188,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <Button asChild size="sm" className="hidden shadow-[0_8px_24px_rgba(59,130,246,0.28)] sm:inline-flex">
               <Link href="/upload">
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                Quick Upload
+                Upload Contract
               </Link>
             </Button>
             <Button size="sm" variant="ghost" aria-label="View notifications" className="h-10 w-10 px-0">

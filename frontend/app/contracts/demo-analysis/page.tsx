@@ -185,7 +185,7 @@ export default function DemoAnalysisPage() {
       <div className="mx-auto max-w-[1440px] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
         <div className="mb-8">
           <Button asChild variant="ghost" size="sm" className="mb-4 px-0 text-muted-foreground hover:bg-transparent">
-            <Link href="/dashboard/documents" aria-label="Back to documents">
+            <Link href="/documents" aria-label="Back to documents">
               <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
               Back to documents
             </Link>
@@ -218,13 +218,17 @@ export default function DemoAnalysisPage() {
               </div>
 
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row xl:pt-2">
-                <Button className="w-full sm:w-auto" aria-label="Open AI Chat for Vendor Data Processing Agreement">
-                  <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Open AI Chat
+                <Button asChild className="w-full sm:w-auto">
+                  <Link href="/ai-chat" aria-label="Open AI Chat for Vendor Data Processing Agreement">
+                    <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
+                    Open AI Chat
+                  </Link>
                 </Button>
-                <Button variant="outline" className="w-full sm:w-auto" aria-label="Export analysis report">
-                  <Download className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Export Report
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/reports/demo-report" aria-label="Export analysis report">
+                    <Download className="mr-2 h-5 w-5" aria-hidden="true" />
+                    Export Report
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -431,18 +435,22 @@ export default function DemoAnalysisPage() {
               </div>
 
               <div className="mt-5 flex flex-col gap-3">
-                <Button className="w-full" aria-label="Open AI Chat from action panel">
-                  <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Open AI Chat
+                <Button asChild className="w-full">
+                  <Link href="/ai-chat" aria-label="Open AI Chat from action panel">
+                    <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
+                    Open AI Chat
+                  </Link>
                 </Button>
-                <Button variant="outline" className="w-full" aria-label="Export report from action panel">
-                  <Download className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Export Report
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/reports/demo-report" aria-label="Export report from action panel">
+                    <Download className="mr-2 h-5 w-5" aria-hidden="true" />
+                    Export Report
+                  </Link>
                 </Button>
                 <Button asChild variant="ghost" className="w-full">
                   <Link href="/upload" aria-label="Upload another document">
                     <RefreshCw className="mr-2 h-5 w-5" aria-hidden="true" />
-                    Upload another document
+                    Upload Contract
                   </Link>
                 </Button>
               </div>

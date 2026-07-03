@@ -62,7 +62,7 @@ export default function HomePage() {
           <motion.div initial={entrance} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="max-w-3xl">
             <div className="inline-flex h-7 items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD]">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
-              AI-powered legal document intelligence
+              AI legal intelligence
             </div>
             <h1 className="mt-6 text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
               Analyze contracts with the calm precision of a legal analyst.
@@ -73,11 +73,11 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
                 <Link href="/signup">
-                  Start Workspace <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                  Sign up <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/dashboard">View dashboard</Link>
+                <Link href="/dashboard">View Dashboard</Link>
               </Button>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -180,12 +180,12 @@ export default function HomePage() {
                 <div>
                   <p className="text-base font-semibold leading-7 text-foreground">Trusted by legal-forward teams</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Social proof placeholder for firms, operators, and founders reviewing high-value agreements.
+                    Frontend-only demo workspace for firms, operators, and founders reviewing high-value agreements.
                   </p>
                 </div>
               </div>
               <Button asChild variant="outline">
-                <Link href="/signup">Start Workspace</Link>
+                <Link href="/signup">Sign up</Link>
               </Button>
             </CardContent>
           </Card>

@@ -29,11 +29,11 @@ import { Input } from "@/components/ui/input";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: Home, active: true },
-  { label: "Documents", href: "/dashboard/documents", icon: FileText },
+  { label: "Documents", href: "/documents", icon: FileText },
   { label: "Upload", href: "/upload", icon: Upload },
-  { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquareText, ai: true },
-  { label: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings }
+  { label: "AI Chat", href: "/ai-chat", icon: MessageSquareText, ai: true },
+  { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "Settings", href: "/settings", icon: Settings }
 ];
 
 const pipelineSteps = [
@@ -106,9 +106,9 @@ const activities = [
 ];
 
 const quickActions = [
-  { label: "Analyze contract", icon: Upload, href: "/upload" },
-  { label: "Ask AI", icon: MessageSquareText, href: "/dashboard/chat" },
-  { label: "Export report", icon: BarChart3, href: "/dashboard/reports" }
+  { label: "Upload Contract", icon: Upload, href: "/upload" },
+  { label: "Open AI Chat", icon: MessageSquareText, href: "/ai-chat" },
+  { label: "Export Report", icon: BarChart3, href: "/reports/demo-report" }
 ];
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -286,7 +286,7 @@ export default function DashboardPage() {
             <Button asChild size="sm" className="hidden shadow-[0_8px_24px_rgba(59,130,246,0.28)] sm:inline-flex">
               <Link href="/upload">
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                Quick Upload
+                Upload Contract
               </Link>
             </Button>
             <Button size="sm" variant="ghost" aria-label="View notifications" className="h-10 w-10 px-0">
@@ -317,7 +317,7 @@ export default function DashboardPage() {
                 <CardContent className="p-6 sm:p-8 lg:p-10">
                   <div className="inline-flex h-7 items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD]">
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
-                    AI-first legal workspace
+                    AI legal intelligence workspace
                   </div>
                   <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-tight text-foreground sm:text-5xl">
                     Understand contracts in seconds.
@@ -341,9 +341,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="mt-5 flex flex-wrap gap-x-3 gap-y-2 text-sm leading-6 text-muted-foreground">
                     <span>30s average analysis</span>
-                    <span aria-hidden="true">•</span>
+                    <span aria-hidden="true">/</span>
                     <span>12 risk categories</span>
-                    <span aria-hidden="true">•</span>
+                    <span aria-hidden="true">/</span>
                     <span>Export-ready reports</span>
                   </div>
                   <div className="mt-6 rounded-2xl border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 p-5 shadow-[0_12px_36px_rgba(139,92,246,0.12)]">
@@ -446,7 +446,7 @@ export default function DashboardPage() {
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">View recent documents and resume analysis.</p>
                   </div>
                   <Button asChild variant="ghost" size="sm">
-                    <Link href="/dashboard/documents">View all</Link>
+                    <Link href="/documents">View all</Link>
                   </Button>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
@@ -454,7 +454,7 @@ export default function DashboardPage() {
                     {documents.map((document) => (
                       <Link
                         key={document.title}
-                        href="/dashboard/documents"
+                        href="/contracts/demo-analysis"
                         className="grid gap-4 border-b border-border bg-background p-4 transition duration-150 ease-out last:border-b-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid-cols-[minmax(0,1fr)_112px_120px_96px]"
                       >
                         <span>

@@ -26,6 +26,26 @@
 
   * {
     @apply border-border;
+    scrollbar-color: #334155 transparent;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
   }
 
   html {
@@ -68,6 +88,100 @@
   }
 }
 
+@layer utilities {
+  .scrollbar-premium {
+    scrollbar-color: #334155 transparent;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-premium::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-premium::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-premium::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 999px;
+  }
+
+  .scrollbar-premium::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .scrollbar-thin {
+    scrollbar-color: #475569 transparent;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .lexai-auth-input {
+    background: #0b1220 !important;
+    border-color: rgba(120, 150, 220, 0.18) !important;
+    color: #f5f7ff !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.24) !important;
+  }
+
+  .lexai-auth-input::placeholder {
+    color: #8fa1bf !important;
+    opacity: 1;
+  }
+
+  .lexai-auth-input:hover {
+    background: #0f1728 !important;
+    border-color: rgba(120, 150, 220, 0.32) !important;
+  }
+
+  .lexai-auth-input:focus,
+  .lexai-auth-input:focus-visible {
+    border-color: #4f8cff !important;
+    box-shadow:
+      0 0 0 4px rgba(79, 140, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.24) !important;
+    outline: none !important;
+  }
+
+  @media (max-height: 820px) and (min-width: 1024px) {
+    .lexai-short-screen-hidden {
+      display: none !important;
+    }
+  }
+}
+
 @keyframes lexai-section-in {
   from {
     opacity: 0;
@@ -87,5 +201,31 @@
 
   to {
     transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes lexai-chat-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lexai-typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
   }
 }
