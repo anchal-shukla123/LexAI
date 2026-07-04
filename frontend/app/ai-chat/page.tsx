@@ -288,6 +288,7 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
                 </div>
                 {message.nextQuestion ? (
                   <button
+                    suppressHydrationWarning
                     type="button"
                     onClick={() => onSuggestedQuestion(message.nextQuestion ?? "")}
                     className="inline-flex items-center gap-2 text-left text-sm font-semibold text-primary transition duration-150 ease-out hover:text-[#93C5FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -490,6 +491,7 @@ export default function AiChatPage() {
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 xl:gap-1.5">
                   {suggestedQuestions.map((question) => (
                     <button
+                      suppressHydrationWarning
                       key={question}
                       type="button"
                       onClick={() => sendPrompt(question)}

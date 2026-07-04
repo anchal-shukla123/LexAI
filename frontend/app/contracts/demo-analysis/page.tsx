@@ -630,6 +630,7 @@ export default function DemoAnalysisPage() {
                       <h3 className="mt-5 text-xl font-semibold leading-tight text-foreground">{clause.title}</h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">{clause.summary}</p>
                       <button
+                        suppressHydrationWarning
                         type="button"
                         className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary transition duration-150 ease-out hover:text-[#93C5FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         aria-label={`Review ${clause.title} clause`}

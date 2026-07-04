@@ -173,6 +173,7 @@ function SegmentedControl({
           const active = value === option;
           return (
             <button
+              suppressHydrationWarning
               key={option}
               type="button"
               role="radio"
@@ -216,6 +217,7 @@ function ToggleSwitch({
         {description ? <span className="mt-1 block text-sm leading-6 text-muted-foreground">{description}</span> : null}
       </span>
       <button
+        suppressHydrationWarning
         type="button"
         role="switch"
         aria-checked={checked}
@@ -258,6 +260,7 @@ function ChoicePills({
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
         {options.map((option) => (
           <button
+            suppressHydrationWarning
             key={option}
             type="button"
             role="radio"
@@ -318,6 +321,7 @@ function ConfirmationModal({
             <Trash2 className="h-5 w-5" aria-hidden="true" />
           </span>
           <button
+            suppressHydrationWarning
             type="button"
             aria-label="Close delete workspace dialog"
             onClick={onClose}

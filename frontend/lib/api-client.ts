@@ -2,7 +2,7 @@ import type { ApiResponse, PaginatedResponse } from "@/types/api";
 import { AUTH_STORAGE_KEY, TOKEN_STORAGE_KEY, canUseStorage, emitAuthStorageChange } from "@/lib/auth-storage";
 
 const DEFAULT_DEV_API_URL = "http://localhost:8000/api/v1";
-const DEFAULT_TIMEOUT_MS = 3500;
+const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class ApiClientError extends Error {
   status: number;

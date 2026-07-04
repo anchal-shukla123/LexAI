@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import type { Prisma, UserRole } from "@prisma/client";
+import { Prisma, type UserRole } from "@prisma/client";
 
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
@@ -53,9 +53,9 @@ function normalizeSlugBase(value: string) {
   );
 }
 
-async function generateUniqueWorkspaceSlug(workspaceName: string) {
+async function generateUniqueWorkspaceSlug(workspaceName: string, client: Prisma.TransactionClient | typeof prisma = prisma) {
   const baseSlug = normalizeSlugBase(workspaceName);
-  const existingWorkspace = await prisma.workspace.findUnique({
+  const existingWorkspace = await client.workspace.findUnique({
     where: { slug: baseSlug },
     select: { id: true }
   });
@@ -67,7 +67,7 @@ async function generateUniqueWorkspaceSlug(workspaceName: string) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const suffix = randomBytes(3).toString("hex");
     const candidate = `${baseSlug}-${suffix}`;
-    const existingCandidate = await prisma.workspace.findUnique({
+    const existingCandidate = await client.workspace.findUnique({
       where: { slug: candidate },
       select: { id: true }
     });
@@ -131,75 +131,97 @@ export async function signup(input: SignupInput) {
   }
 
   const passwordHash = await hashPassword(input.password);
-  const workspaceSlug = await generateUniqueWorkspaceSlug(input.workspaceName);
 
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        name: input.name,
-        email: input.email,
-        passwordHash
-      },
-      select: userSelect()
-    });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { email: input.email },
+        select: { id: true }
+      });
 
-    const workspace = await tx.workspace.create({
-      data: {
-        name: input.workspaceName,
-        slug: workspaceSlug,
-        createdById: user.id
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true
+      if (existingUser) {
+        throw new AppError("CONFLICT", "Email is already registered.");
       }
+
+      const workspaceSlug = await generateUniqueWorkspaceSlug(input.workspaceName, tx);
+
+      const user = await tx.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          passwordHash
+        },
+        select: userSelect()
+      });
+
+      const workspace = await tx.workspace.create({
+        data: {
+          name: input.workspaceName,
+          slug: workspaceSlug,
+          createdById: user.id
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true
+        }
+      });
+
+      await tx.workspaceMember.create({
+        data: {
+          workspaceId: workspace.id,
+          userId: user.id,
+          role: "OWNER",
+          joinedAt: new Date()
+        }
+      });
+
+      await tx.userSettings.create({
+        data: {
+          userId: user.id,
+          defaultWorkspaceId: workspace.id,
+          emailNotificationsEnabled: true
+        }
+      });
+
+      await tx.workspaceSettings.create({
+        data: {
+          workspaceId: workspace.id,
+          ...workspaceSettingsDefaults
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          workspaceId: workspace.id,
+          actorUserId: user.id,
+          action: "USER_SIGNED_UP",
+          entityType: "User",
+          entityId: user.id
+        }
+      });
+
+      return {
+        user,
+        workspace,
+        token: issueToken(user)
+      };
+    }, {
+      maxWait: 10_000,
+      timeout: 15_000
     });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      Array.isArray(error.meta?.target) &&
+      error.meta.target.includes("email")
+    ) {
+      throw new AppError("CONFLICT", "Email is already registered.");
+    }
 
-    await tx.workspaceMember.create({
-      data: {
-        workspaceId: workspace.id,
-        userId: user.id,
-        role: "OWNER",
-        joinedAt: new Date()
-      }
-    });
-
-    await tx.userSettings.create({
-      data: {
-        userId: user.id,
-        defaultWorkspaceId: workspace.id,
-        emailNotificationsEnabled: true
-      }
-    });
-
-    await tx.workspaceSettings.create({
-      data: {
-        workspaceId: workspace.id,
-        ...workspaceSettingsDefaults
-      }
-    });
-
-    await tx.auditLog.create({
-      data: {
-        workspaceId: workspace.id,
-        actorUserId: user.id,
-        action: "USER_SIGNED_UP",
-        entityType: "User",
-        entityId: user.id
-      }
-    });
-
-    return {
-      user,
-      workspace
-    };
-  });
-
-  return {
-    ...result,
-    token: issueToken(result.user)
-  };
+    throw error;
+  }
 }
 
 export async function login(input: LoginInput) {

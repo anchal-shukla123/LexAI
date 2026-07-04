@@ -617,6 +617,7 @@ export default function UploadPage() {
               <CardContent className="space-y-3 p-5 pt-0">
                 {sampleUploads.map((example) => (
                   <button
+                    suppressHydrationWarning
                     key={example.name}
                     type="button"
                     onClick={() => router.push("/contracts/demo-analysis")}

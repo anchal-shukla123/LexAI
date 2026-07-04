@@ -110,11 +110,15 @@ function isValidEmail(value: string) {
 
 function getBackendErrorMessage(error: unknown, mode: AuthMode) {
   if (!(error instanceof ApiClientError)) {
-    return "Something went wrong. Please try again.";
+    return mode === "signup" ? "Signup failed. Please try again." : "Something went wrong. Please try again.";
   }
 
   if (error.status === 0 || error.code === "NETWORK_ERROR" || error.code === "CONFIG_MISSING") {
     return "Backend unavailable. Please start the backend server and try again.";
+  }
+
+  if (mode === "signup" && error.status === 409) {
+    return "An account with this email already exists. Please log in.";
   }
 
   if (mode === "login" && error.status === 401) {
@@ -130,6 +134,14 @@ function getBackendErrorMessage(error: unknown, mode: AuthMode) {
       return null;
     })
     .find(Boolean);
+
+  if (error.status === 400 || error.code === "VALIDATION_ERROR") {
+    return detailsMessage ?? error.message;
+  }
+
+  if (mode === "signup") {
+    return "Signup failed. Please try again.";
+  }
 
   return detailsMessage ?? error.message;
 }
@@ -373,6 +385,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                         aria-describedby={errors.password ? "password-error" : mode === "signup" ? "password-strength" : undefined}
                       />
                       <button
+                        suppressHydrationWarning
                         type="button"
                         onClick={() => setShowPassword((value) => !value)}
                         className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-[#1F2937] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
@@ -399,6 +412,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <label className="flex items-center gap-2 text-muted-foreground">
                         <input
+                          suppressHydrationWarning
                           type="checkbox"
                           checked={remember}
                           onChange={(event) => setRemember(event.target.checked)}
@@ -407,6 +421,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                         Remember me
                       </label>
                       <button
+                        suppressHydrationWarning
                         type="button"
                         onClick={() => setForgotMessage("Password reset flow will be available in the production build.")}
                         className="text-[#93C5FD] transition hover:text-[#BFDBFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
@@ -418,6 +433,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                     <Field error={errors.terms} errorId="terms-error" compact>
                       <label className="flex items-start gap-3 text-sm leading-5 text-muted-foreground">
                         <input
+                          suppressHydrationWarning
                           type="checkbox"
                           checked={terms}
                           onChange={(event) => setTerms(event.target.checked)}

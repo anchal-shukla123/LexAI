@@ -1,4 +1,4 @@
-import { postJson, safeFetch } from "@/lib/api-client";
+import { ApiClientError, postJson, safeFetch } from "@/lib/api-client";
 import { AUTH_STORAGE_KEY, TOKEN_STORAGE_KEY, canUseStorage, emitAuthStorageChange } from "@/lib/auth-storage";
 import type { AuthSession, LoginPayload, SignupPayload } from "@/types/api";
 
@@ -55,14 +55,22 @@ export function getStoredAuth(): Omit<AuthSession, "token"> | null {
   }
 }
 
+function assertAuthSession(session: AuthSession): AuthSession {
+  if (!session?.user?.id || !session.user.email || !session?.workspace?.id || !session.workspace.name || !session.workspace.slug || !session.token) {
+    throw new ApiClientError("Signup failed. Please try again.", 500, "INVALID_AUTH_RESPONSE");
+  }
+
+  return session;
+}
+
 export async function signup(payload: SignupPayload) {
-  const session = await postJson<AuthSession>("/auth/signup", payload);
+  const session = assertAuthSession(await postJson<AuthSession>("/auth/signup", payload));
   setAuthSession(session);
   return session;
 }
 
 export async function login(payload: LoginPayload) {
-  const session = await postJson<AuthSession>("/auth/login", payload);
+  const session = assertAuthSession(await postJson<AuthSession>("/auth/login", payload));
   setAuthSession(session);
   return session;
 }
