@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import { authRouter } from "../modules/auth/auth.routes.js";
 import { chatRouter } from "../modules/chat/chat.routes.js";
 import { demoRouter } from "../modules/demo/demo.routes.js";
 import { documentsRouter } from "../modules/documents/documents.routes.js";
@@ -15,6 +16,7 @@ apiRouter.get("/", (_req, res) => {
   });
 });
 
+apiRouter.use("/auth", authRouter);
 apiRouter.use("/demo", demoRouter);
 apiRouter.use("/documents", documentsRouter);
 apiRouter.use("/reports", reportsRouter);
