@@ -75,6 +75,29 @@ export async function safeFetch<T>(path: string, init?: RequestInit): Promise<T>
   return payload.data as T;
 }
 
+export async function postJson<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+  return safeFetch<T>(path, {
+    ...init,
+    method: init?.method ?? "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers
+    },
+    body: JSON.stringify(body)
+  });
+}
+
+export async function uploadFile<T>(path: string, file: File, fieldName = "file", init?: RequestInit): Promise<T> {
+  const formData = new FormData();
+  formData.append(fieldName, file);
+
+  return safeFetch<T>(path, {
+    ...init,
+    method: init?.method ?? "POST",
+    body: formData
+  });
+}
+
 export async function safeFetchPaginated<T>(path: string, init?: RequestInit): Promise<PaginatedResponse<T>> {
   const baseUrl = getApiBaseUrl();
 

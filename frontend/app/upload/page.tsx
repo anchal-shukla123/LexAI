@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertCircle,
@@ -22,29 +23,28 @@ import {
   UploadCloud,
   X
 } from "lucide-react";
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiClientError, postJson, uploadFile } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 const allowedExtensions = [".pdf", ".docx", ".png", ".jpg", ".jpeg"];
 const maxFileSize = 20 * 1024 * 1024;
 
 const processingSteps = [
-  { label: "Upload complete", icon: CheckCircle2 },
-  { label: "Extracting text", icon: ScanText },
-  { label: "Detecting clauses", icon: FileText },
-  { label: "Scoring risk", icon: ShieldCheck },
-  { label: "Preparing summary", icon: Sparkles },
-  { label: "Report ready", icon: CheckCircle2 }
+  { label: "Preparing document", icon: FileText },
+  { label: "Uploading file", icon: UploadCloud },
+  { label: "Running LexAI mock analysis", icon: Sparkles },
+  { label: "Opening analysis report", icon: CheckCircle2 }
 ];
 
 const tips = [
   "Use the final executed contract for the most accurate clause map.",
   "Scanned PDFs and screenshots are accepted for this mock flow.",
-  "LexAI keeps this frontend demo local and does not upload files."
+  "LexAI stores uploads in the local backend MVP storage when available."
 ];
 
 const formatChips = ["PDF", "DOCX", "PNG", "JPG"];
@@ -67,6 +67,33 @@ const sampleUploads = [
 type UploadPhase = "idle" | "selected" | "invalid" | "uploading" | "success" | "processing" | "ready";
 type UploadFile = Pick<File, "name" | "size" | "type">;
 
+type CreatedDocument = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+type UploadedDocumentFile = {
+  file: {
+    id: string;
+    originalName: string;
+    mimeType: string;
+    extension: string;
+    sizeBytes: number;
+  };
+  document: {
+    id: string;
+    status: string;
+  };
+};
+
+type AnalysisResult = {
+  jobId: string;
+  documentId: string;
+  status: string;
+  reportId: string;
+};
+
 function formatFileSize(size: number) {
   const megabytes = size / (1024 * 1024);
   return `${megabytes < 0.1 ? megabytes.toFixed(2) : megabytes.toFixed(1)} MB`;
@@ -75,6 +102,19 @@ function formatFileSize(size: number) {
 function getExtension(fileName: string) {
   const dotIndex = fileName.lastIndexOf(".");
   return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : "";
+}
+
+function titleFromFileName(fileName: string) {
+  const dotIndex = fileName.lastIndexOf(".");
+  return (dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName).trim() || "Uploaded Contract";
+}
+
+function isBackendUnavailable(error: unknown) {
+  return error instanceof ApiClientError && (error.status === 0 || error.code === "NETWORK_ERROR" || error.code === "CONFIG_MISSING");
+}
+
+function sleep(durationMs: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, durationMs));
 }
 
 function validateFile(file: UploadFile) {
@@ -116,20 +156,23 @@ function statusForStep(index: number, activeStep: number, phase: UploadPhase) {
 }
 
 export default function UploadPage() {
+  const router = useRouter();
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [selectedFile, setSelectedFile] = useState<UploadFile | null>(null);
+  const [selectedRealFile, setSelectedRealFile] = useState<File | null>(null);
   const [error, setError] = useState("");
+  const [fallbackMessage, setFallbackMessage] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
+  const [createdDocumentId, setCreatedDocumentId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldReduceMotion = useReducedMotion();
+  const isBusy = phase === "uploading" || phase === "processing" || phase === "success" || phase === "ready";
 
   const statusText = useMemo(() => {
     if (phase === "uploading") {
-      if (progress < 32) return "Encrypting file locally";
-      if (progress < 72) return "Preparing secure analysis workspace";
-      return "Finalizing upload package";
+      return processingSteps[activeStep]?.label ?? "Preparing document";
     }
 
     if (phase === "processing") {
@@ -141,59 +184,21 @@ export default function UploadPage() {
     }
 
     return "Awaiting contract file";
-  }, [activeStep, phase, progress]);
+  }, [activeStep, phase]);
 
-  useEffect(() => {
-    if (phase !== "uploading") {
-      return undefined;
-    }
-
-    const timer = window.setInterval(() => {
-      setProgress((current) => {
-        const next = Math.min(current + 8, 100);
-
-        if (next >= 100) {
-          window.clearInterval(timer);
-          window.setTimeout(() => setPhase("success"), shouldReduceMotion ? 80 : 300);
-        }
-
-        return next;
-      });
-    }, shouldReduceMotion ? 30 : 160);
-
-    return () => window.clearInterval(timer);
-  }, [phase, shouldReduceMotion]);
-
-  useEffect(() => {
-    if (phase !== "processing") {
-      return undefined;
-    }
-
-    const timer = window.setInterval(() => {
-      setActiveStep((current) => {
-        if (current >= processingSteps.length - 1) {
-          window.clearInterval(timer);
-          window.setTimeout(() => setPhase("ready"), shouldReduceMotion ? 80 : 420);
-          return current;
-        }
-
-        return current + 1;
-      });
-    }, shouldReduceMotion ? 60 : 760);
-
-    return () => window.clearInterval(timer);
-  }, [phase, shouldReduceMotion]);
-
-  function handleFile(file: UploadFile | undefined) {
+  function handleFile(file: UploadFile | undefined, realFile: File | null = file instanceof File ? file : null) {
     if (!file) {
       return;
     }
 
     const validationError = validateFile(file);
     setSelectedFile(file);
+    setSelectedRealFile(realFile);
     setError(validationError);
+    setFallbackMessage("");
     setProgress(0);
     setActiveStep(0);
+    setCreatedDocumentId("");
     setPhase(validationError ? "invalid" : "selected");
   }
 
@@ -210,24 +215,88 @@ export default function UploadPage() {
 
   function clearFile() {
     setSelectedFile(null);
+    setSelectedRealFile(null);
     setError("");
+    setFallbackMessage("");
     setProgress(0);
     setActiveStep(0);
+    setCreatedDocumentId("");
     setPhase("idle");
   }
 
-  function startUpload() {
+  async function runFrontendDemoFallback() {
+    setFallbackMessage("Backend unavailable — running frontend demo flow");
+    setPhase("processing");
+
+    for (let index = 0; index < processingSteps.length; index += 1) {
+      setActiveStep(index);
+      setProgress(Math.round(((index + 1) / processingSteps.length) * 100));
+      await sleep(shouldReduceMotion ? 80 : 520);
+    }
+
+    setPhase("ready");
+    await sleep(shouldReduceMotion ? 80 : 260);
+    router.push("/contracts/demo-analysis");
+  }
+
+  async function startUpload() {
     if (!selectedFile || error) {
       return;
     }
 
-    setProgress(0);
-    setPhase("uploading");
-  }
+    if (!selectedRealFile) {
+      await runFrontendDemoFallback();
+      return;
+    }
 
-  function startProcessing() {
+    setError("");
+    setFallbackMessage("");
+    setProgress(0);
     setActiveStep(0);
-    setPhase("processing");
+    setPhase("uploading");
+
+    try {
+      setActiveStep(0);
+      setProgress(12);
+      const document =
+        createdDocumentId.length > 0
+          ? { id: createdDocumentId }
+          : await postJson<CreatedDocument>("/documents", {
+              title: titleFromFileName(selectedRealFile.name),
+              description: "Uploaded from LexAI workspace"
+            });
+      setCreatedDocumentId(document.id);
+
+      setActiveStep(1);
+      setProgress(42);
+      await uploadFile<UploadedDocumentFile>(`/documents/${document.id}/upload`, selectedRealFile);
+
+      setActiveStep(2);
+      setProgress(72);
+      await postJson<AnalysisResult>(`/documents/${document.id}/analyze`, { mode: "standard" });
+
+      setActiveStep(3);
+      setProgress(100);
+      setPhase("ready");
+      await sleep(shouldReduceMotion ? 80 : 260);
+      router.push(`/contracts/demo-analysis?documentId=${document.id}`);
+    } catch (uploadError) {
+      if (isBackendUnavailable(uploadError) && !createdDocumentId) {
+        await runFrontendDemoFallback();
+        return;
+      }
+
+      const rejected = uploadError instanceof ApiClientError && uploadError.code === "UPLOAD_REJECTED";
+      setError(
+        rejected
+          ? "Upload rejected. Please upload a PDF, DOCX, PNG, JPG, or JPEG under 20MB."
+          : uploadError instanceof Error
+            ? uploadError.message
+            : "Upload failed. Please try again."
+      );
+      setPhase("selected");
+      setProgress(0);
+    }
   }
 
   const uploadZoneState = phase === "invalid" ? "invalid" : phase === "success" || phase === "ready" ? "success" : phase;
@@ -255,7 +324,7 @@ export default function UploadPage() {
               </div>
               <div className="flex items-center gap-2 rounded-full border border-[#22C55E]/40 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#86EFAC]">
                 <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                Frontend-only secure demo
+                Local MVP secure upload
               </div>
             </div>
 
@@ -318,7 +387,7 @@ export default function UploadPage() {
                     </h2>
                     <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                       {selectedFile
-                        ? "Review the file details, then start the mock AI upload."
+                        ? "Review the file details, then upload to the LexAI backend and run mock analysis."
                         : "Drag and drop a PDF, DOCX, PNG, JPG, or JPEG file, or choose a document from your device."}
                     </p>
 
@@ -331,23 +400,18 @@ export default function UploadPage() {
                     </div>
 
                     <div className="mt-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-                      <Button type="button" onClick={() => fileInputRef.current?.click()} className="w-full sm:w-auto">
+                      <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isBusy} className="w-full sm:w-auto">
                         <UploadCloud className="mr-2 h-5 w-5" aria-hidden="true" />
                         Select File
                       </Button>
                       {phase === "selected" ? (
-                        <Button type="button" variant="outline" onClick={startUpload} className="w-full sm:w-auto">
+                        <Button type="button" variant="outline" onClick={startUpload} disabled={isBusy} className="w-full sm:w-auto">
                           Start Upload
-                        </Button>
-                      ) : null}
-                      {phase === "success" ? (
-                        <Button type="button" variant="outline" onClick={startProcessing} className="w-full sm:w-auto">
-                          Continue to Processing
                         </Button>
                       ) : null}
                       {phase === "ready" ? (
                         <Button asChild variant="outline" className="w-full sm:w-auto">
-                          <Link href="/contracts/demo-analysis">View Analysis</Link>
+                          <Link href={createdDocumentId ? `/contracts/demo-analysis?documentId=${createdDocumentId}` : "/contracts/demo-analysis"}>View Analysis</Link>
                         </Button>
                       ) : null}
                     </div>
@@ -357,7 +421,7 @@ export default function UploadPage() {
                       <span className="hidden h-1 w-1 rounded-full bg-muted-foreground/50 sm:block" aria-hidden="true" />
                       <span className="inline-flex items-center gap-1.5 text-[#86EFAC]">
                         <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
-                        Files stay local in this demo
+                        Backend fallback keeps demo available
                       </span>
                     </div>
                   </div>
@@ -383,7 +447,7 @@ export default function UploadPage() {
                               {getExtension(selectedFile.name).replace(".", "").toUpperCase() || "Unknown type"}
                             </p>
                           </div>
-                          <Button type="button" variant="ghost" size="sm" onClick={clearFile} className="h-10 w-full px-3 sm:w-auto">
+                          <Button type="button" variant="ghost" size="sm" onClick={clearFile} disabled={isBusy} className="h-10 w-full px-3 sm:w-auto">
                             <X className="mr-2 h-4 w-4" aria-hidden="true" />
                             Remove
                           </Button>
@@ -401,16 +465,25 @@ export default function UploadPage() {
                     </div>
                   ) : null}
 
+                  {fallbackMessage ? (
+                    <div className="mt-5 flex gap-3 rounded-2xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-4 text-sm leading-6 text-[#FCD34D]" role="status">
+                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                      <p>
+                        <span className="font-semibold">{fallbackMessage}</span>
+                      </p>
+                    </div>
+                  ) : null}
+
                   {phase === "uploading" || phase === "success" || phase === "processing" || phase === "ready" ? (
                     <div className="mt-6 rounded-2xl border border-border bg-background p-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium leading-6 text-foreground">{statusText}</p>
-                        <p className="text-sm font-semibold leading-6 text-primary">{phase === "uploading" ? `${progress}%` : "100%"}</p>
+                        <p className="text-sm font-semibold leading-6 text-primary">{phase === "ready" ? "100%" : `${progress}%`}</p>
                       </div>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                         <motion.div
                           className="h-full rounded-full bg-primary shadow-[0_0_24px_rgba(59,130,246,0.45)]"
-                          animate={{ width: `${phase === "uploading" ? progress : 100}%` }}
+                          animate={{ width: `${phase === "ready" ? 100 : progress}%` }}
                           transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
                         />
                       </div>
@@ -458,12 +531,12 @@ export default function UploadPage() {
               </div>
             </section>
 
-            {(phase === "processing" || phase === "ready") ? (
+            {(phase === "uploading" || phase === "processing" || phase === "ready") ? (
               <Card className="mt-6 border-[#8B5CF6]/35 bg-card/95 shadow-[0_16px_48px_rgba(139,92,246,0.12)]">
                 <CardHeader className="p-6">
                   <CardTitle className="flex items-center gap-2 text-xl">
                     <Sparkles className="h-5 w-5 text-[#C4B5FD]" aria-hidden="true" />
-                    AI Processing
+                    Upload Pipeline
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 p-6 pt-0">
@@ -502,7 +575,7 @@ export default function UploadPage() {
                   })}
                   {phase === "ready" ? (
                     <Button asChild className="mt-3 w-full sm:w-auto">
-                      <Link href="/contracts/demo-analysis">View Analysis</Link>
+                      <Link href={createdDocumentId ? `/contracts/demo-analysis?documentId=${createdDocumentId}` : "/contracts/demo-analysis"}>View Analysis</Link>
                     </Button>
                   ) : null}
                 </CardContent>
@@ -532,7 +605,7 @@ export default function UploadPage() {
                 </div>
                 <h2 className="mt-4 text-lg font-semibold text-foreground">Private by design</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  This prototype validates and processes files in browser state only. No backend upload, OCR, or real AI is called.
+                  LexAI uses the local backend MVP for real uploads when available, with a frontend demo fallback if the backend is offline.
                 </p>
               </CardContent>
             </Card>
@@ -546,7 +619,8 @@ export default function UploadPage() {
                   <button
                     key={example.name}
                     type="button"
-                    onClick={() => handleFile(example)}
+                    onClick={() => router.push("/contracts/demo-analysis")}
+                    disabled={isBusy}
                     className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-background/90 p-4 text-left transition duration-150 ease-out hover:border-primary/50 hover:bg-muted/50 hover:shadow-[0_12px_32px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
