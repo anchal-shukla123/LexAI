@@ -257,6 +257,19 @@ function riskBadge(risk: string) {
   return "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]";
 }
 
+function dashboardItemKey(
+  item: {
+    id?: string | null;
+    title?: string | null;
+    label?: string | null;
+    createdAt?: string | null;
+    time?: string | null;
+  },
+  index: number
+) {
+  return item.id ?? `${item.title ?? item.label}-${item.createdAt ?? item.time ?? index}-${index}`;
+}
+
 export default function DashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -305,11 +318,13 @@ export default function DashboardPage() {
     () =>
       dashboard?.recentDocuments.length
         ? dashboard.recentDocuments.map((document) => ({
+            id: document.id,
             title: document.title,
             type: document.description ?? "Legal document",
             risk: riskLabel(document.riskScore),
             status: titleCase(document.status),
             time: formatDate(document.createdAt),
+            createdAt: document.createdAt,
             badge: riskBadge(riskLabel(document.riskScore)),
             href: `/contracts/demo-analysis?documentId=${document.id}`
           }))
@@ -333,9 +348,11 @@ export default function DashboardPage() {
   );
   const auditActivities = dashboard?.recentAuditLogs.length
     ? dashboard.recentAuditLogs.slice(0, 5).map((activity) => ({
+        id: activity.id,
         title: titleCase(activity.action),
         detail: `${titleCase(activity.entityType)} ${activity.actorUser?.name ?? activity.actorUser?.email ?? "system"}`,
         time: formatDate(activity.createdAt),
+        createdAt: activity.createdAt,
         icon: CheckCircle2
       }))
     : activities;
@@ -578,9 +595,9 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
                   <div className="overflow-hidden rounded-2xl border border-border">
-                    {documents.map((document) => (
+                    {documents.map((document, index) => (
                       <Link
-                        key={document.title}
+                        key={dashboardItemKey(document, index)}
                         href={document.href}
                         className="grid gap-4 border-b border-border bg-background p-4 transition duration-150 ease-out last:border-b-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid-cols-[minmax(0,1fr)_112px_120px_96px]"
                       >
@@ -604,8 +621,8 @@ export default function DashboardPage() {
                   <CardTitle className="text-xl">Recent Reports</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-0 p-6 pt-0">
-                  {reports.map((report) => (
-                    <Link key={report.id} href={report.href} className="mb-3 block rounded-2xl border border-border bg-background p-4 transition duration-150 ease-out last:mb-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {reports.map((report, index) => (
+                    <Link key={dashboardItemKey(report, index)} href={report.href} className="mb-3 block rounded-2xl border border-border bg-background p-4 transition duration-150 ease-out last:mb-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <span className="flex items-center justify-between gap-3">
                         <span className="block text-sm font-medium leading-6 text-foreground">{report.title}</span>
                         <span className={`h-7 w-fit rounded-full border px-3 py-1 text-xs font-medium ${riskBadge(report.risk)}`}>{report.risk}</span>
@@ -631,7 +648,7 @@ export default function DashboardPage() {
                     const Icon = activity.icon;
 
                     return (
-                      <div key={`${activity.title}-${activity.time}`} className="relative flex gap-4 pb-5 last:pb-0">
+                      <div key={dashboardItemKey(activity, index)} className="relative flex gap-4 pb-5 last:pb-0">
                         {index < auditActivities.length - 1 ? <span className="absolute left-5 top-10 h-[calc(100%-40px)] w-px bg-border" aria-hidden="true" /> : null}
                         <span className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
                           <Icon className="h-5 w-5" aria-hidden="true" />

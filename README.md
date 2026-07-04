@@ -1,83 +1,286 @@
 # LexAI
 
-LexAI is an AI-powered SaaS platform for legal document analysis. This repository contains the initial production-oriented monorepo foundation for the frontend, backend, database, and local Docker environment.
+AI-powered contract and legal document intelligence SaaS.
 
-## Stack
+LexAI is a full-stack MVP in the ApexGroup product ecosystem. It gives legal, operations, and startup teams a premium workspace for uploading contracts, running mock AI analysis, reviewing clause and risk findings, generating reports, and exploring document-aware chat flows.
 
-- Frontend: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui-compatible components
-- Backend: Node.js, Express, TypeScript
-- Database: PostgreSQL with Prisma
-- DevOps: Docker Compose for frontend, backend, and Postgres
+Built by Anchal Shukla.
 
-## Repository Structure
+## Overview
+
+LexAI demonstrates the product and engineering foundation for a legal document intelligence platform. The current app includes a polished Next.js frontend, an Express + TypeScript API, PostgreSQL persistence through Prisma, JWT-based authentication, document upload, mock analysis persistence, reports, chat detail views, and an auth-aware workspace shell.
+
+The current AI layer is intentionally mocked. It persists realistic analysis outputs so the full product flow can be demonstrated without claiming production OCR, extraction, or legal reasoning. Real OCR and LLM integrations are planned.
+
+## Project Documentation
+
+- [Case Study](docs/CASE_STUDY.md)
+- [Project Overview](docs/PROJECT_OVERVIEW.md)
+- [Demo Guide](docs/DEMO_GUIDE.md)
+- [API Overview](docs/API_OVERVIEW.md)
+- [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)
+- [MVP Checklist](docs/MVP_CHECKLIST.md)
+- [Screenshot Guide](docs/SCREENSHOTS.md)
+
+## Key Features
+
+- Premium SaaS dashboard with workspace-aware data.
+- Auth signup, login, logout, and authenticated workspace mode.
+- Demo Mode fallback when no token is present or backend data is unavailable.
+- Document create and upload flow for legal files.
+- Mock AI risk analysis persisted in PostgreSQL.
+- Clause findings, risk findings, and recommendations.
+- Report generation and report detail views.
+- AI chat mock grounding against seeded or uploaded document context.
+- Documents library with backend-backed data and fallback content.
+- Settings/profile page for workspace presentation.
+- Auth-aware shell with `Signed in` and `Demo Mode` states.
+
+## Tech Stack
+
+### Frontend
+
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- shadcn-compatible UI primitives
+- Framer Motion
+- lucide-react icons
+
+### Backend
+
+- Node.js
+- Express
+- TypeScript
+- Prisma
+- PostgreSQL
+- JWT
+- bcryptjs
+- multer
+
+### Development
+
+- npm workspaces
+- Prisma Studio
+- ESLint
+- TypeScript
+- Docker Compose support for local infrastructure
+
+## Architecture
 
 ```text
-frontend/   Next.js App Router application
-backend/    Express API and Prisma setup
-docs/       Product, engineering, and decision documentation
-design/     Design assets and references
-scripts/    Project automation scripts
+Next.js Frontend
+-> API client with optional JWT
+-> Express API
+-> Request context resolver
+-> Prisma services
+-> PostgreSQL
 ```
 
-## Prerequisites
+The frontend sends an `Authorization: Bearer <token>` header when `lexai_token` exists. Backend routes that support optional authentication use the authenticated workspace when a valid JWT is provided and fall back to the seeded demo workspace when no token is provided.
 
-- Node.js 20.11+ or 22 LTS
-- npm 10+
-- Docker Desktop
+## Screens
+
+- Landing page
+- Login and signup
+- Dashboard
+- Documents
+- Upload
+- Contract analysis
+- AI chat
+- Reports
+- Settings
+
+## Screenshots
+
+Screenshots should be added under `assets/screenshots/`.
+
+![Dashboard](assets/screenshots/dashboard-auth.png)
+![Analysis](assets/screenshots/analysis.png)
+![AI Chat](assets/screenshots/ai-chat.png)
+![Report Detail](assets/screenshots/report-detail.png)
+
+See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the recommended capture list, file names, and safety notes.
+
+## Backend Capabilities
+
+- Auth session creation with hashed passwords and JWTs.
+- Auth-aware request context resolution.
+- Demo workspace fallback for optional-auth routes.
+- Document CRUD.
+- File upload metadata through multer.
+- Mock analysis generation and persistence.
+- Report listing and report detail retrieval.
+- Chat session detail retrieval.
+- Standard success, paginated, and error response envelopes.
 
 ## Local Setup
 
-1. Install dependencies:
+### Prerequisites
+
+- Node.js 22 LTS recommended.
+- npm 10+.
+- PostgreSQL running locally.
+- Optional: Docker Desktop if using the Docker Compose workflow.
+
+### Install Dependencies
+
+Windows:
+
+```bash
+npm.cmd install
+```
+
+Cross-platform:
 
 ```bash
 npm install
 ```
 
-2. Create environment files:
+### Environment Files
+
+Create backend and frontend environment files:
 
 ```bash
-cp frontend/.env.example frontend/.env.local
-cp backend/.env.example backend/.env
+copy backend\.env.example backend\.env
+copy frontend\.env.example frontend\.env.local
 ```
 
-3. Generate Prisma client:
+Do not commit `.env` files.
+
+## Environment Variables
+
+### Backend
 
 ```bash
-npm run prisma:generate
+DATABASE_URL="postgresql://postgres:<password>@localhost:5432/lexai?schema=public"
+JWT_SECRET="replace-with-a-long-development-secret"
+JWT_EXPIRES_IN="7d"
+PORT=8000
+API_PREFIX=/api/v1
+CORS_ORIGIN=http://localhost:3000
 ```
 
-4. Start the apps in development:
+### Frontend
 
 ```bash
-npm run dev --workspace frontend
-npm run dev --workspace backend
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Frontend runs at `http://localhost:3000`.
-Backend runs at `http://localhost:8000`.
+## Database Setup
 
-## Docker Setup
-
-Start all services:
+Generate Prisma client:
 
 ```bash
-docker compose up --build
+npm.cmd run prisma:generate --workspace backend
 ```
 
-Services:
+Run migrations:
+
+```bash
+npm.cmd run prisma:migrate --workspace backend
+```
+
+Seed demo data:
+
+```bash
+npm.cmd run db:seed --workspace backend
+```
+
+Open Prisma Studio:
+
+```bash
+npm.cmd run prisma:studio --workspace backend
+```
+
+## Running the App
+
+Start the backend:
+
+```bash
+npm.cmd run dev --workspace backend
+```
+
+Start the frontend:
+
+```bash
+npm.cmd run dev --workspace frontend
+```
+
+Open:
 
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:8000/health`
-- API v1 root: `http://localhost:8000/api/v1`
-- Postgres: `localhost:5432`
+- API root: `http://localhost:8000/api/v1`
 
-## Validation
+## Demo Flow
 
-```bash
-npm run typecheck
-npm run build
+1. Open the landing page.
+2. Sign up or log in.
+3. Confirm the shell shows `Signed in`.
+4. Open the dashboard.
+5. Upload a PDF, DOCX, PNG, JPG, or JPEG.
+6. Let the create/upload/analyze flow complete.
+7. Open the analysis page.
+8. Review risk score, clause findings, risk findings, and recommendations.
+9. Open AI chat from the analysis flow.
+10. Open a generated report.
+11. Visit settings.
+12. Log out.
+13. Confirm pages still render in `Demo Mode`.
+
+## API Highlights
+
+Base URL:
+
+```text
+http://localhost:8000/api/v1
 ```
 
-## Current Scope
+Key endpoints:
 
-This setup intentionally does not include AI features, authentication, document upload, OCR, or legal analysis workflows yet. Those features should be added after the product and data model are specified.
+- `POST /auth/signup`
+- `POST /auth/login`
+- `GET /auth/me`
+- `POST /auth/logout`
+- `GET /demo/dashboard`
+- `GET /documents`
+- `POST /documents`
+- `GET /documents/:documentId`
+- `PATCH /documents/:documentId`
+- `DELETE /documents/:documentId`
+- `POST /documents/:documentId/upload`
+- `POST /documents/:documentId/analyze`
+- `GET /reports`
+- `GET /reports/:reportId`
+- `GET /chat/sessions/:sessionId`
+
+See [docs/API_OVERVIEW.md](docs/API_OVERVIEW.md) for more detail.
+
+## Current Limitations
+
+- AI analysis is mocked and deterministic enough for MVP demonstration.
+- OCR and real LLM reasoning are not implemented yet.
+- Uploaded file storage is local/development-oriented.
+- No refresh-token rotation.
+- No production billing, teams, permissions matrix, or deployment hardening yet.
+- Legal outputs are demo intelligence and should not be treated as legal advice.
+
+## Roadmap
+
+- Real OCR and document extraction pipeline.
+- LLM-backed clause analysis and chat grounding.
+- Production object storage for uploaded files and exports.
+- Team roles, invitations, and workspace administration.
+- Report export jobs with durable storage.
+- Audit-ready activity history and admin reporting.
+- Deployment hardening for production environments.
+
+## Suggested GitHub Topics
+
+`nextjs`, `typescript`, `express`, `prisma`, `postgresql`, `saas`, `ai`, `legaltech`, `contract-analysis`, `jwt-auth`, `full-stack`
+
+## Author
+
+Built by Anchal Shukla as part of the ApexGroup product ecosystem.
