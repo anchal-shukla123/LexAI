@@ -2,6 +2,8 @@ import type { ApiResponse, PaginatedResponse } from "@/types/api";
 
 const DEFAULT_DEV_API_URL = "http://localhost:8000/api/v1";
 const DEFAULT_TIMEOUT_MS = 3500;
+const TOKEN_STORAGE_KEY = "lexai_token";
+const AUTH_STORAGE_KEY = "lexai_auth";
 
 export class ApiClientError extends Error {
   status: number;
@@ -31,6 +33,46 @@ export function getApiBaseUrl() {
   return "";
 }
 
+function canUseStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function getStoredToken() {
+  if (!canUseStorage()) {
+    return null;
+  }
+
+  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+function clearStoredAuth() {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function hasAuthorizationHeader(headers: Headers) {
+  return headers.has("Authorization") || headers.has("authorization");
+}
+
+function buildHeaders(initHeaders?: HeadersInit) {
+  const headers = new Headers(initHeaders);
+
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
+  const token = getStoredToken();
+  if (token && !hasAuthorizationHeader(headers)) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  return headers;
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   try {
     return (await response.json()) as T;
@@ -54,10 +96,7 @@ export async function safeFetch<T>(path: string, init?: RequestInit): Promise<T>
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: {
-        Accept: "application/json",
-        ...init?.headers
-      },
+      headers: buildHeaders(init?.headers),
       cache: "no-store",
       signal: init?.signal ?? controller.signal
     });
@@ -71,6 +110,9 @@ export async function safeFetch<T>(path: string, init?: RequestInit): Promise<T>
 
   if (!response.ok || !payload.success) {
     const error = "error" in payload ? payload.error : undefined;
+    if (response.status === 401) {
+      clearStoredAuth();
+    }
     throw new ApiClientError(error?.message ?? "Backend request failed.", response.status, error?.code, error?.details);
   }
 
@@ -115,10 +157,7 @@ export async function safeFetchPaginated<T>(path: string, init?: RequestInit): P
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: {
-        Accept: "application/json",
-        ...init?.headers
-      },
+      headers: buildHeaders(init?.headers),
       cache: "no-store",
       signal: init?.signal ?? controller.signal
     });
@@ -132,6 +171,9 @@ export async function safeFetchPaginated<T>(path: string, init?: RequestInit): P
 
   if (!response.ok || !payload.success) {
     const error = "error" in payload ? payload.error : undefined;
+    if (response.status === 401) {
+      clearStoredAuth();
+    }
     throw new ApiClientError(error?.message ?? "Backend request failed.", response.status, error?.code, error?.details);
   }
 
