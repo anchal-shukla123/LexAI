@@ -93,12 +93,43 @@ The frontend sends an `Authorization: Bearer <token>` header when `lexai_token` 
 
 ## Screenshots
 
-Screenshots should be added under `assets/screenshots/`.
+All screenshots use demo/test data. No real legal documents or secrets are shown.
 
+### Landing Page
+![Landing Page](assets/screenshots/landing.png)
+
+### Dashboard
 ![Dashboard](assets/screenshots/dashboard-auth.png)
-![Analysis](assets/screenshots/analysis.png)
+
+### Upload Flow
+![Upload Flow](assets/screenshots/upload.png)
+
+### Contract Analysis
+![Contract Analysis](assets/screenshots/analysis.png)
+
+### AI Chat
 ![AI Chat](assets/screenshots/ai-chat.png)
-![Report Detail](assets/screenshots/report-detail.png)
+
+### Reports
+![Reports](assets/screenshots/report.png)
+
+### Report Analysis
+![Report Analysis](assets/screenshots/report-analysis.png)
+
+### Settings
+![Settings](assets/screenshots/settings.png)
+
+### Documents
+![Documents](assets/screenshots/documents.png)
+
+### Login
+![Login](assets/screenshots/login.png)
+
+### Signup
+![Signup](assets/screenshots/signup.png)
+
+### Dashboard Demo Mode
+![Dashboard Demo Mode](assets/screenshots/dashboard-demo.png)
 
 See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the recommended capture list, file names, and safety notes.
 

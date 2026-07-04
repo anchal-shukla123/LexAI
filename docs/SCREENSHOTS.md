@@ -8,6 +8,21 @@ assets/screenshots/
 
 Use demo data or a test account only. Do not show real secrets, private contracts, API keys, tokens, or `backend/.env`.
 
+Current repository screenshots:
+
+- `ai-chat.png`
+- `analysis.png`
+- `dashboard-auth.png`
+- `dashboard-demo.png`
+- `documents.png`
+- `landing.png`
+- `login.png`
+- `report-analysis.png`
+- `report.png`
+- `settings.png`
+- `signup.png`
+- `upload.png`
+
 ## Recommended Screenshots
 
 | Screen | Recommended file name |
@@ -18,7 +33,7 @@ Use demo data or a test account only. Do not show real secrets, private contract
 | Dashboard signed in | `dashboard-auth.png` |
 | Dashboard demo mode | `dashboard-demo.png` |
 | Upload page | `upload.png` |
-| Upload processing state | `upload-processing.png` |
+| Upload processing state, optional/not captured yet | `upload-processing.png` |
 | Analysis report | `analysis.png` |
 | AI chat | `ai-chat.png` |
 | Reports overview | `reports.png` |
@@ -41,11 +56,19 @@ Use demo data or a test account only. Do not show real secrets, private contract
 
 ## Suggested README Set
 
-For a concise GitHub presentation, start with these four:
+The README currently uses the screenshots available in `assets/screenshots/`:
 
+- `landing.png`
 - `dashboard-auth.png`
+- `upload.png`
 - `analysis.png`
 - `ai-chat.png`
-- `report-detail.png`
+- `report.png`
+- `report-analysis.png`
+- `settings.png`
+- `documents.png`
+- `login.png`
+- `signup.png`
+- `dashboard-demo.png`
 
-Then add the rest as the portfolio page or repository matures.
+`upload-processing.png` is optional and has not been captured yet, so README should not reference it.
