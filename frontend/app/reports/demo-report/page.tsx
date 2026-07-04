@@ -142,12 +142,12 @@ const fallbackRedlines = [
 
 function Badge({ children, tone }: { children: React.ReactNode; tone: "low" | "medium" | "high" | "ai" | "info" | "success" }) {
   const tones = {
-    low: "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]",
-    medium: "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]",
-    high: "border-[#EF4444]/45 bg-[#EF4444]/10 text-[#FCA5A5]",
-    ai: "border-[#8B5CF6]/45 bg-[#8B5CF6]/10 text-[#C4B5FD]",
-    info: "border-[#3B82F6]/45 bg-[#3B82F6]/10 text-[#BFDBFE]",
-    success: "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]"
+    low: "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]",
+    medium: "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]",
+    high: "border-[#D66A5E]/45 bg-[#D66A5E]/10 text-[#E89A92]",
+    ai: "border-[#D9B76E]/45 bg-[#D9B76E]/10 text-[#F0D89B]",
+    info: "border-[#6BAA9C]/45 bg-[#6BAA9C]/10 text-[#9BCBC2]",
+    success: "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]"
   };
 
   return <span className={`inline-flex min-h-7 items-center rounded-full border px-3 py-1 text-xs font-medium ${tones[tone]}`}>{children}</span>;
@@ -183,7 +183,7 @@ function titleCase(value: string) {
 function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description?: string; id: string }) {
   return (
     <div className="mb-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B5CF6]">{eyebrow}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7E8A86]">{eyebrow}</p>
       <h2 id={id} className="mt-2 text-2xl font-bold leading-tight text-foreground">
         {title}
       </h2>
@@ -198,12 +198,12 @@ function RiskScoreRing({ score = 74 }: { score?: number }) {
 
   return (
     <div
-      className="relative grid h-40 w-40 shrink-0 place-items-center rounded-full shadow-[0_0_40px_rgba(245,158,11,0.24)] motion-safe:animate-[lexai-risk-fill_900ms_ease-out]"
-      style={{ background: `conic-gradient(#F59E0B 0deg ${degrees}deg, rgba(31,41,55,0.9) ${degrees}deg 360deg)` }}
+      className="relative grid h-40 w-40 shrink-0 place-items-center rounded-full shadow-[0_0_40px_rgba(217,183,110,0.18)] motion-safe:animate-[lexai-risk-fill_900ms_ease-out]"
+      style={{ background: `conic-gradient(#D9B76E 0deg ${degrees}deg, #2C3632 ${degrees}deg 360deg)` }}
       role="img"
       aria-label={`Risk score ${boundedScore} out of 100`}
     >
-      <div className="grid h-[124px] w-[124px] place-items-center rounded-full border border-[#F59E0B]/25 bg-[#161B22]">
+      <div className="grid h-[124px] w-[124px] place-items-center rounded-full border border-[#D9B76E]/25 bg-[#121817]">
         <div className="text-center">
           <p className="text-4xl font-bold leading-none text-foreground">{boundedScore}</p>
           <p className="mt-1 text-xs font-medium text-muted-foreground">/ 100</p>
@@ -295,21 +295,22 @@ export default function DemoReportPage() {
           </Link>
         </Button>
 
-        <section aria-labelledby="report-title" className="rounded-2xl border border-[#8B5CF6]/35 bg-[#161B22]/95 p-6 shadow-[0_0_44px_rgba(139,92,246,0.12),0_16px_48px_rgba(0,0,0,0.24)] sm:p-8">
+        <section aria-labelledby="report-title" className="relative overflow-hidden rounded-2xl border border-[#D9B76E]/30 bg-[#121817]/95 p-6 shadow-[0_0_44px_rgba(217,183,110,0.08),0_16px_48px_rgba(0,0,0,0.24)] sm:p-8">
+          <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(rgba(245,245,239,0.035)_1px,transparent_1px)] bg-[length:100%_42px] opacity-60" />
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-4xl">
+            <div className="relative max-w-4xl">
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <Badge tone="success">
                   <BadgeCheck className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
                   {report?.status ? titleCase(report.status) : "Export ready"}
                 </Badge>
                 <Badge tone={isFallback ? "ai" : "info"}>{isFallback ? "Backend unavailable — showing demo data" : isLoading ? "Loading report" : "Backend report"}</Badge>
-                <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-border bg-[#1F2937] px-3 py-1 text-xs font-medium text-muted-foreground">
+                <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-[#2C3632] bg-[#151C19] px-3 py-1 text-xs font-medium text-muted-foreground">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
                   Generated: {report?.createdAt ? formatDate(report.createdAt) : "Just now"}
                 </span>
               </div>
-              <p className="text-sm font-medium text-muted-foreground">AI-generated legal intelligence report</p>
+              <p className="text-sm font-medium text-muted-foreground">Plain-English legal review report</p>
               <h1 id="report-title" className="mt-2 text-3xl font-bold leading-tight text-foreground sm:text-4xl">
                 {report?.title ?? "Vendor Data Processing Agreement"}
               </h1>
@@ -318,39 +319,39 @@ export default function DemoReportPage() {
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[220px]">
+            <div className="relative flex w-full flex-col gap-3 sm:w-auto sm:min-w-[220px]">
               <Button onClick={prepareExport} className="w-full" aria-label="Download mock PDF report">
                 <Download className="mr-2 h-5 w-5" aria-hidden="true" />
                 Download PDF
               </Button>
               <Button onClick={shareReport} variant="outline" className="w-full" aria-label="Share mock report">
                 <Share2 className="mr-2 h-5 w-5" aria-hidden="true" />
-                Share Report
+                Share report
               </Button>
               <Button asChild variant="ghost" className="w-full">
-                <Link href={chatHref} aria-label="Open AI Chat for this report">
+                <Link href={chatHref} aria-label="Ask about this report">
                   <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Open AI Chat
+                  Ask about report
                 </Link>
               </Button>
             </div>
           </div>
 
           {exportMessage ? (
-            <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#22C55E]/35 bg-[#22C55E]/10 px-4 py-3 text-sm font-medium text-[#86EFAC] motion-safe:animate-[lexai-section-in_220ms_ease-out]" role="status">
+            <div className="relative mt-5 flex items-center gap-3 rounded-xl border border-[#A7C957]/35 bg-[#A7C957]/10 px-4 py-3 text-sm font-medium text-[#D7E8A5] motion-safe:animate-[lexai-section-in_220ms_ease-out]" role="status">
               <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
               {exportMessage}
             </div>
           ) : null}
 
           {shareVisible ? (
-            <div className="mt-5 rounded-xl border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 p-4 motion-safe:animate-[lexai-section-in_220ms_ease-out]" role="status">
+            <div className="relative mt-5 rounded-xl border border-[#D9B76E]/35 bg-[#D9B76E]/10 p-4 motion-safe:animate-[lexai-section-in_220ms_ease-out]" role="status">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[#C4B5FD]">Secure report link copied.</p>
+                  <p className="text-sm font-semibold text-[#F0D89B]">Secure report link copied.</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">lexai.app/reports/{report?.id ?? "vendor-dpa-demo"}</p>
                 </div>
-                <Link2 className="h-5 w-5 text-[#C4B5FD]" aria-hidden="true" />
+                <Link2 className="h-5 w-5 text-[#F0D89B]" aria-hidden="true" />
               </div>
             </div>
           ) : null}
@@ -359,16 +360,16 @@ export default function DemoReportPage() {
         <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <main className="space-y-8">
             <section aria-labelledby="executive-summary-title">
-              <div className="rounded-2xl border border-[#8B5CF6]/40 bg-[#161B22]/95 p-6 shadow-[0_0_44px_rgba(139,92,246,0.14),0_16px_48px_rgba(0,0,0,0.22)] sm:p-8">
+              <div className="rounded-2xl border border-[#D9B76E]/30 bg-[#121817]/95 p-6 shadow-[0_0_44px_rgba(217,183,110,0.08),0_16px_48px_rgba(0,0,0,0.22)] sm:p-8">
                 <div className="mb-5 flex flex-wrap items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#8B5CF6]/15 text-[#C4B5FD] shadow-[0_0_28px_rgba(139,92,246,0.2)]">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#D9B76E]/15 text-[#F0D89B] shadow-[0_0_28px_rgba(217,183,110,0.14)]">
                     <Sparkles className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
                     <h2 id="executive-summary-title" className="text-2xl font-bold leading-tight text-foreground">
                       Executive Summary
                     </h2>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#C4B5FD]">Generated by LexAI Intelligence</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#D9B76E]">Generated by LexAI review</p>
                   </div>
                 </div>
                 <p className="max-w-5xl text-base leading-8 text-muted-foreground">
@@ -380,7 +381,7 @@ export default function DemoReportPage() {
             <section aria-labelledby="risk-snapshot-title">
               <SectionHeading id="risk-snapshot-title" eyebrow="Risk snapshot" title={`${riskLevel} risk, export-ready`} description="The strongest signals are concentrated in liability, privacy, security, and termination." />
               <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-                <div className="rounded-2xl border border-[#F59E0B]/35 bg-[#161B22]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+                <div className="rounded-2xl border border-[#D9B76E]/35 bg-[#121817]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
                   <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
                     <RiskScoreRing score={riskScore} />
                     <div className="min-w-0">
@@ -392,7 +393,7 @@ export default function DemoReportPage() {
                           ["Clauses scanned", String(content.metrics?.clausesScanned ?? 216)],
                           ["Processing time", content.metrics?.processingTime ?? "30s"]
                         ].map(([label, value]) => (
-                          <div key={label} className="rounded-xl border border-border bg-[#1F2937] p-3">
+                          <div key={label} className="rounded-xl border border-[#2C3632] bg-[#151C19] p-3">
                             <p className="text-xs font-medium text-muted-foreground">{label}</p>
                             <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
                           </div>
@@ -402,14 +403,14 @@ export default function DemoReportPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-border bg-[#161B22]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+                <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
                   <div className="mb-4 flex items-center justify-between gap-4">
                     <h3 className="text-xl font-semibold leading-tight text-foreground">Risk heatmap</h3>
                     <Badge tone="info">6 categories</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {heatmapCells.map((cell) => (
-                      <div key={cell.label} className={`min-h-24 rounded-xl border p-3 ${cell.signal === "high" ? "border-[#EF4444]/45 bg-[#EF4444]/15 text-[#FCA5A5]" : cell.signal === "low" ? "border-[#22C55E]/35 bg-[#22C55E]/10 text-[#86EFAC]" : "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]"}`}>
+                      <div key={cell.label} className={`min-h-24 rounded-xl border p-3 ${cell.signal === "high" ? "border-[#D66A5E]/45 bg-[#D66A5E]/15 text-[#E89A92]" : cell.signal === "low" ? "border-[#A7C957]/35 bg-[#A7C957]/10 text-[#D7E8A5]" : "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]"}`}>
                         <p className="text-xs font-medium text-current">{cell.label}</p>
                         <p className="mt-4 text-2xl font-bold leading-none text-foreground">{cell.value}</p>
                         <p className="mt-1 text-xs font-medium text-current">{cell.signal} signal</p>
@@ -424,15 +425,15 @@ export default function DemoReportPage() {
               <SectionHeading id="key-findings-title" eyebrow="Key findings" title="Main legal issues" description="Findings are prioritized by severity and recommended negotiation impact." />
               <div className="grid gap-4 md:grid-cols-2">
                 {findings.map((finding) => (
-                  <article key={finding.title} className="rounded-2xl border border-border bg-[#161B22]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition duration-150 ease-out hover:-translate-y-1 hover:border-primary/45">
+                  <article key={finding.title} className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[#D9B76E]/45">
                     <div className="flex items-start justify-between gap-4">
                       <h3 className="text-xl font-semibold leading-tight text-foreground">{finding.title}</h3>
                       <Badge tone={finding.severity === "High" ? "high" : "medium"}>{finding.severity} severity</Badge>
                     </div>
-                    <p className="mt-4 text-sm font-semibold text-[#CBD5E1]">Finding</p>
+                    <p className="mt-4 text-sm font-semibold text-[#F5F5EF]">Finding</p>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">{finding.finding}</p>
-                    <div className="mt-4 rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/10 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#BFDBFE]">Recommended action</p>
+                    <div className="mt-4 rounded-xl border border-[#D9B76E]/25 bg-[#D9B76E]/10 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#D9B76E]">Recommended action</p>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.action}</p>
                     </div>
                   </article>
@@ -447,9 +448,9 @@ export default function DemoReportPage() {
                   const Icon = clause.icon;
 
                   return (
-                    <article key={clause.title} className="rounded-2xl border border-border bg-[#161B22]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                    <article key={clause.title} className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
                       <div className="flex items-start justify-between gap-4">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#1F2937] text-primary">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#6BAA9C]/20 bg-[#6BAA9C]/10 text-[#9BCBC2]">
                           <Icon className="h-5 w-5" aria-hidden="true" />
                         </span>
                         <div className="flex flex-wrap justify-end gap-2">
@@ -469,17 +470,17 @@ export default function DemoReportPage() {
               <SectionHeading id="redlines-title" eyebrow="Recommended redlines" title="Action-oriented negotiation changes" description="These recommendations show how an exportable report will guide next steps." />
               <div className="space-y-4">
                 {redlines.map((redline) => (
-                  <article key={redline.title} className="rounded-2xl border border-[#22C55E]/25 bg-[#161B22]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                  <article key={redline.title} className="rounded-2xl border border-[#A7C957]/25 bg-[#121817]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#22C55E]/10 text-[#86EFAC]">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#A7C957]/10 text-[#D7E8A5]">
                           <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
                         </span>
                         <div>
                           <h3 className="text-lg font-semibold leading-tight text-foreground">{redline.title}</h3>
-                          <p className="mt-3 text-sm font-semibold text-[#CBD5E1]">What to change</p>
+                          <p className="mt-3 text-sm font-semibold text-[#F5F5EF]">What to change</p>
                           <p className="mt-1 text-sm leading-6 text-muted-foreground">{redline.change}</p>
-                          <p className="mt-3 text-sm font-semibold text-[#CBD5E1]">Why it matters</p>
+                          <p className="mt-3 text-sm font-semibold text-[#F5F5EF]">Why it matters</p>
                           <p className="mt-1 text-sm leading-6 text-muted-foreground">{redline.why}</p>
                         </div>
                       </div>
@@ -492,9 +493,9 @@ export default function DemoReportPage() {
           </main>
 
           <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start" aria-label="Report actions and processing audit">
-            <section className="rounded-2xl border border-[#8B5CF6]/35 bg-[#161B22]/95 p-6 shadow-[0_0_36px_rgba(139,92,246,0.12),0_16px_48px_rgba(0,0,0,0.24)]">
+            <section className="rounded-2xl border border-[#D9B76E]/35 bg-[#121817]/95 p-6 shadow-[0_0_36px_rgba(217,183,110,0.08),0_16px_48px_rgba(0,0,0,0.24)]">
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#8B5CF6]/15 text-[#C4B5FD]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#D9B76E]/15 text-[#F0D89B]">
                   <FileCheck2 className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div>
@@ -509,21 +510,21 @@ export default function DemoReportPage() {
                 </Button>
                 <Button onClick={shareReport} variant="outline" className="w-full" aria-label="Share mock report from status panel">
                   <Send className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Share Report
+                  Share report
                 </Button>
                 <Button asChild variant="ghost" className="w-full">
-                  <Link href={chatHref} aria-label="Open AI Chat from report status panel">
+                  <Link href={chatHref} aria-label="Ask about this report from report status panel">
                     <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
-                    Open AI Chat
+                    Ask about report
                   </Link>
                 </Button>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border bg-[#161B22]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+            <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B5CF6]">AI confidence</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7E8A86]">Review confidence</p>
                   <h2 className="mt-2 text-xl font-semibold leading-tight text-foreground">Processing details</h2>
                 </div>
                 <Info className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
@@ -536,13 +537,13 @@ export default function DemoReportPage() {
                     <div key={item.label}>
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <Icon className="h-4 w-4 shrink-0 text-[#6BAA9C]" aria-hidden="true" />
                           <p className="truncate text-sm text-muted-foreground">{item.label}</p>
                         </div>
                         <p className="shrink-0 text-sm font-semibold text-foreground">{item.value}</p>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-[#1F2937]" aria-hidden="true">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${item.progress}%` }} />
+                      <div className="h-2 overflow-hidden rounded-full bg-[#2C3632]" aria-hidden="true">
+                        <div className="h-full rounded-full bg-[#D9B76E]" style={{ width: `${item.progress}%` }} />
                       </div>
                     </div>
                   );
@@ -550,11 +551,11 @@ export default function DemoReportPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border bg-[#161B22]/70 p-5">
+            <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/70 p-5">
               <div className="flex items-start gap-3">
                 <Scale className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm leading-6 text-muted-foreground">
-                  LexAI provides AI-generated document intelligence and does not replace professional legal advice.
+                  LexAI review output does not replace professional legal advice.
                 </p>
               </div>
             </section>

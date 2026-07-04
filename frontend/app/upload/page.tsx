@@ -37,7 +37,7 @@ const maxFileSize = 20 * 1024 * 1024;
 const processingSteps = [
   { label: "Preparing document", icon: FileText },
   { label: "Uploading file", icon: UploadCloud },
-  { label: "Running LexAI mock analysis", icon: Sparkles },
+  { label: "Running mock review", icon: Sparkles },
   { label: "Opening analysis report", icon: CheckCircle2 }
 ];
 
@@ -225,7 +225,7 @@ export default function UploadPage() {
   }
 
   async function runFrontendDemoFallback() {
-    setFallbackMessage("Backend unavailable — running frontend demo flow");
+    setFallbackMessage("Backend unavailable - running frontend demo flow");
     setPhase("processing");
 
     for (let index = 0; index < processingSteps.length; index += 1) {
@@ -313,22 +313,23 @@ export default function UploadPage() {
           <section className="min-w-0">
             <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="mb-3 inline-flex h-7 items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD]">
-                  <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  AI contract intake
+                <p className="mb-3 inline-flex h-7 items-center gap-2 rounded-full border border-[#6BAA9C]/35 bg-[#6BAA9C]/10 px-3 text-xs font-medium text-[#9BCBC2]">
+                  <ScanText className="h-4 w-4" aria-hidden="true" />
+                  Secure document intake
                 </p>
-                <h1 className="text-3xl font-bold leading-tight text-foreground sm:text-4xl">Upload Contract</h1>
+                <h1 className="text-3xl font-bold leading-tight text-[#F5F5EF] sm:text-4xl">Upload contract</h1>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
-                  Upload a legal document and LexAI will extract obligations, risks, clauses, and recommendations.
+                  Add a PDF, DOCX, PNG, JPG, or JPEG. LexAI will create a review and open the analysis page.
                 </p>
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-[#22C55E]/40 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#86EFAC]">
+              <div className="flex items-center gap-2 rounded-full border border-[#2C3632] bg-[#121817] px-4 py-2 text-sm font-medium text-[#A2AAA5]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#A7C957] shadow-[0_0_12px_rgba(167,201,87,0.45)]" aria-hidden="true" />
                 <LockKeyhole className="h-4 w-4" aria-hidden="true" />
                 Local MVP secure upload
               </div>
             </div>
 
-            <Card className="overflow-hidden border-primary/40 bg-card/95 shadow-[0_28px_90px_rgba(0,0,0,0.34),0_0_48px_rgba(59,130,246,0.08)]">
+            <Card className="overflow-hidden border-[#2C3632] bg-[#121817]/95 shadow-[0_28px_90px_rgba(0,0,0,0.34),0_0_48px_rgba(217,183,110,0.06)]">
               <CardContent className="p-4 sm:p-6 lg:p-8">
                 <div
                   onDrop={handleDrop}
@@ -339,21 +340,24 @@ export default function UploadPage() {
                   onDragLeave={() => setIsDragging(false)}
                   className={cn(
                     "relative overflow-hidden rounded-2xl border border-dashed p-6 transition duration-150 ease-out sm:p-8 lg:p-10",
-                    "bg-[radial-gradient(circle_at_50%_8%,rgba(59,130,246,0.22),transparent_22rem),radial-gradient(circle_at_78%_36%,rgba(139,92,246,0.18),transparent_20rem),linear-gradient(180deg,rgba(31,41,55,0.68),rgba(13,17,23,0.72))]",
+                    "bg-[radial-gradient(circle_at_50%_8%,rgba(107,170,156,0.15),transparent_22rem),radial-gradient(circle_at_78%_36%,rgba(217,183,110,0.12),transparent_20rem),linear-gradient(180deg,rgba(27,36,33,0.72),rgba(11,15,14,0.78))]",
                     uploadZoneState === "invalid"
-                      ? "border-[#EF4444] bg-[#EF4444]/5 shadow-[0_0_44px_rgba(239,68,68,0.16)]"
+                      ? "border-[#D66A5E] bg-[#D66A5E]/5 shadow-[0_0_44px_rgba(214,106,94,0.14)]"
                       : isDragging
-                        ? "border-primary bg-primary/10 shadow-[0_0_56px_rgba(59,130,246,0.34)]"
+                        ? "border-[#A7C957] bg-[#A7C957]/10 shadow-[0_0_56px_rgba(167,201,87,0.18)]"
                         : uploadZoneState === "success"
-                          ? "border-[#22C55E] bg-[#22C55E]/5 shadow-[0_0_48px_rgba(34,197,94,0.18)]"
-                          : "border-primary/45 bg-background/55 shadow-[0_0_42px_rgba(59,130,246,0.18)]"
+                          ? "border-[#A7C957] bg-[#A7C957]/5 shadow-[0_0_48px_rgba(167,201,87,0.14)]"
+                          : "border-[#6BAA9C]/45 bg-[#0B0F0E]/55 shadow-[0_0_42px_rgba(107,170,156,0.1)]"
                   )}
                   aria-label="Upload contract dropzone"
                 >
-                  <div aria-hidden="true" className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-                  <div aria-hidden="true" className="pointer-events-none absolute right-6 top-6 hidden items-center gap-2 rounded-full border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 px-3 py-1 text-xs font-medium text-[#C4B5FD] sm:flex">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    AI scan ready
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#D9B76E]/70 to-transparent" />
+                  <span aria-hidden="true" className="document-outline document-outline-one !right-[-6%] !top-[8%] !h-[300px] !w-[220px] opacity-[0.2]" />
+                  <span aria-hidden="true" className="document-outline document-outline-two !left-[-8%] !top-[28%] !h-[260px] !w-[190px] opacity-[0.14]" />
+                  <span aria-hidden="true" className="scan-line" />
+                  <div aria-hidden="true" className="pointer-events-none absolute right-6 top-6 hidden items-center gap-2 rounded-full border border-[#D9B76E]/35 bg-[#D9B76E]/10 px-3 py-1 text-xs font-medium text-[#F0D89B] sm:flex">
+                    <ScanText className="h-3.5 w-3.5" />
+                    Review scan
                   </div>
 
                   <input
@@ -370,12 +374,12 @@ export default function UploadPage() {
                       animate={isDragging && !shouldReduceMotion ? { y: [-2, 2, -2] } : undefined}
                       transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
                       className={cn(
-                        "relative flex h-20 w-20 items-center justify-center rounded-2xl border shadow-[0_18px_56px_rgba(59,130,246,0.24)]",
+                        "relative flex h-20 w-20 items-center justify-center rounded-2xl border shadow-[0_18px_56px_rgba(107,170,156,0.16)]",
                         uploadZoneState === "invalid"
-                          ? "border-[#EF4444]/50 bg-[#EF4444]/10 text-[#FCA5A5]"
+                          ? "border-[#D66A5E]/50 bg-[#D66A5E]/10 text-[#E89A92]"
                           : uploadZoneState === "success"
-                            ? "border-[#22C55E]/50 bg-[#22C55E]/10 text-[#86EFAC]"
-                            : "border-primary/50 bg-primary/10 text-primary"
+                            ? "border-[#A7C957]/50 bg-[#A7C957]/10 text-[#A7C957]"
+                            : "border-[#6BAA9C]/50 bg-[#6BAA9C]/10 text-[#9BCBC2]"
                       )}
                     >
                       <span aria-hidden="true" className="absolute inset-2 rounded-xl border border-white/5" />
@@ -387,13 +391,13 @@ export default function UploadPage() {
                     </h2>
                     <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                       {selectedFile
-                        ? "Review the file details, then upload to the LexAI backend and run mock analysis."
-                        : "Drag and drop a PDF, DOCX, PNG, JPG, or JPEG file, or choose a document from your device."}
+                        ? "Review the file details, then create a review and open the analysis page."
+                        : "Add a PDF, DOCX, PNG, JPG, or JPEG."}
                     </p>
 
                     <div className="mt-5 flex flex-wrap justify-center gap-2">
                       {formatChips.map((format) => (
-                        <span key={format} className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                        <span key={format} className="rounded-full border border-[#6BAA9C]/25 bg-[#6BAA9C]/10 px-3 py-1 text-xs font-semibold text-[#9BCBC2]">
                           {format}
                         </span>
                       ))}
@@ -402,11 +406,11 @@ export default function UploadPage() {
                     <div className="mt-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                       <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isBusy} className="w-full sm:w-auto">
                         <UploadCloud className="mr-2 h-5 w-5" aria-hidden="true" />
-                        Select File
+                        Select file
                       </Button>
                       {phase === "selected" ? (
                         <Button type="button" variant="outline" onClick={startUpload} disabled={isBusy} className="w-full sm:w-auto">
-                          Start Upload
+                          Start review
                         </Button>
                       ) : null}
                       {phase === "ready" ? (
@@ -419,7 +423,7 @@ export default function UploadPage() {
                     <div className="mt-5 flex flex-col items-center gap-2 text-xs leading-5 text-muted-foreground sm:flex-row">
                       <span>Supported formats: PDF, DOCX, PNG, JPG. Maximum file size: 20MB.</span>
                       <span className="hidden h-1 w-1 rounded-full bg-muted-foreground/50 sm:block" aria-hidden="true" />
-                      <span className="inline-flex items-center gap-1.5 text-[#86EFAC]">
+                      <span className="inline-flex items-center gap-1.5 text-[#9BCBC2]">
                         <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
                         Backend fallback keeps demo available
                       </span>
@@ -433,10 +437,10 @@ export default function UploadPage() {
                         initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-                        className="mt-8 rounded-2xl border border-border bg-card/80 p-4"
+                        className="mt-8 rounded-2xl border border-[#2C3632] bg-[#121817]/80 p-4"
                       >
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-primary">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#6BAA9C]/25 bg-[#6BAA9C]/10 text-[#9BCBC2]">
                             <FileIcon fileName={selectedFile.name} />
                           </span>
                           <div className="min-w-0 flex-1">
@@ -457,7 +461,7 @@ export default function UploadPage() {
                   </AnimatePresence>
 
                   {error ? (
-                    <div className="mt-5 flex gap-3 rounded-2xl border border-[#EF4444]/40 bg-[#EF4444]/10 p-4 text-sm leading-6 text-[#FCA5A5]" role="alert">
+                    <div className="mt-5 flex gap-3 rounded-2xl border border-[#D66A5E]/40 bg-[#D66A5E]/10 p-4 text-sm leading-6 text-[#E89A92]" role="alert">
                       <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                       <p>
                         <span className="font-semibold">{error}</span> Remove this file and choose a supported contract document to continue.
@@ -466,7 +470,7 @@ export default function UploadPage() {
                   ) : null}
 
                   {fallbackMessage ? (
-                    <div className="mt-5 flex gap-3 rounded-2xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-4 text-sm leading-6 text-[#FCD34D]" role="status">
+                    <div className="mt-5 flex gap-3 rounded-2xl border border-[#C47A4A]/40 bg-[#C47A4A]/10 p-4 text-sm leading-6 text-[#E4AD89]" role="status">
                       <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                       <p>
                         <span className="font-semibold">{fallbackMessage}</span>
@@ -475,14 +479,14 @@ export default function UploadPage() {
                   ) : null}
 
                   {phase === "uploading" || phase === "success" || phase === "processing" || phase === "ready" ? (
-                    <div className="mt-6 rounded-2xl border border-border bg-background p-4">
+                    <div className="mt-6 rounded-2xl border border-[#2C3632] bg-[#0B0F0E] p-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium leading-6 text-foreground">{statusText}</p>
-                        <p className="text-sm font-semibold leading-6 text-primary">{phase === "ready" ? "100%" : `${progress}%`}</p>
+                        <p className="text-sm font-semibold leading-6 text-[#D9B76E]">{phase === "ready" ? "100%" : `${progress}%`}</p>
                       </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#2C3632]">
                         <motion.div
-                          className="h-full rounded-full bg-primary shadow-[0_0_24px_rgba(59,130,246,0.45)]"
+                          className="h-full rounded-full bg-[#D9B76E] shadow-[0_0_24px_rgba(217,183,110,0.28)]"
                           animate={{ width: `${phase === "ready" ? 100 : progress}%` }}
                           transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
                         />
@@ -503,8 +507,8 @@ export default function UploadPage() {
                     A structured scan for the contract terms that usually drive legal and business risk.
                   </p>
                 </div>
-                <span className="w-fit rounded-full border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 px-3 py-1 text-xs font-medium text-[#C4B5FD]">
-                  Clause intelligence
+                <span className="w-fit rounded-full border border-[#D9B76E]/35 bg-[#D9B76E]/10 px-3 py-1 text-xs font-medium text-[#F0D89B]">
+                  Clause map
                 </span>
               </div>
               <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
@@ -514,10 +518,10 @@ export default function UploadPage() {
                   return (
                     <div
                       key={item.label}
-                      className="group rounded-2xl border border-border bg-[#1F2937]/70 p-4 transition duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/45 hover:bg-[#1F2937] hover:shadow-[0_16px_44px_rgba(0,0,0,0.22)]"
+                      className="group rounded-2xl border border-[#2C3632] bg-[#121817]/80 p-4 transition duration-150 ease-out hover:-translate-y-0.5 hover:border-[#D9B76E]/45 hover:bg-[#1B2421] hover:shadow-[0_16px_44px_rgba(0,0,0,0.22)]"
                     >
                       <div className="flex items-start gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary transition duration-150 ease-out group-hover:border-primary/45 group-hover:shadow-[0_0_26px_rgba(59,130,246,0.18)]">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#6BAA9C]/25 bg-[#6BAA9C]/10 text-[#9BCBC2] transition duration-150 ease-out group-hover:border-[#D9B76E]/45 group-hover:text-[#F0D89B] group-hover:shadow-[0_0_26px_rgba(217,183,110,0.12)]">
                           <Icon className="h-5 w-5" aria-hidden="true" />
                         </span>
                         <div className="min-w-0">
@@ -532,11 +536,11 @@ export default function UploadPage() {
             </section>
 
             {(phase === "uploading" || phase === "processing" || phase === "ready") ? (
-              <Card className="mt-6 border-[#8B5CF6]/35 bg-card/95 shadow-[0_16px_48px_rgba(139,92,246,0.12)]">
+              <Card className="mt-6 border-[#D9B76E]/30 bg-[#121817]/95 shadow-[0_16px_48px_rgba(217,183,110,0.08)]">
                 <CardHeader className="p-6">
                   <CardTitle className="flex items-center gap-2 text-xl">
-                    <Sparkles className="h-5 w-5 text-[#C4B5FD]" aria-hidden="true" />
-                    Upload Pipeline
+                    <Sparkles className="h-5 w-5 text-[#D9B76E]" aria-hidden="true" />
+                    Upload pipeline
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 p-6 pt-0">
@@ -545,16 +549,16 @@ export default function UploadPage() {
                     const status = statusForStep(index, activeStep, phase);
 
                     return (
-                      <div key={step.label} className="relative flex gap-4 rounded-2xl border border-border bg-background p-4">
-                        {index < processingSteps.length - 1 ? <span className="absolute left-[31px] top-12 h-5 w-px bg-border" aria-hidden="true" /> : null}
+                      <div key={step.label} className="relative flex gap-4 rounded-2xl border border-[#2C3632] bg-[#0B0F0E] p-4">
+                        {index < processingSteps.length - 1 ? <span className="absolute left-[31px] top-12 h-5 w-px bg-[#2C3632]" aria-hidden="true" /> : null}
                         <span
                           className={cn(
                             "z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
                             status === "Complete"
-                              ? "border-[#22C55E]/50 bg-[#22C55E]/10 text-[#86EFAC]"
+                              ? "border-[#A7C957]/50 bg-[#A7C957]/10 text-[#D7E8A5]"
                               : status === "Processing"
-                                ? "border-primary/50 bg-primary/10 text-primary"
-                                : "border-border bg-muted text-muted-foreground"
+                                ? "border-[#C47A4A]/50 bg-[#C47A4A]/10 text-[#E4AD89]"
+                                : "border-[#2C3632] bg-[#151C19] text-[#7E8A86]"
                           )}
                         >
                           <Icon className="h-4 w-4" aria-hidden="true" />
@@ -565,7 +569,7 @@ export default function UploadPage() {
                         </span>
                         {status === "Processing" ? (
                           <motion.span
-                            className="mt-2 h-2 w-2 rounded-full bg-primary shadow-[0_0_18px_rgba(59,130,246,0.9)]"
+                            className="mt-2 h-2 w-2 rounded-full bg-[#C47A4A] shadow-[0_0_18px_rgba(196,122,74,0.7)]"
                             animate={shouldReduceMotion ? undefined : { opacity: [0.4, 1, 0.4] }}
                             transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
                           />
@@ -584,23 +588,23 @@ export default function UploadPage() {
           </section>
 
           <aside className="space-y-5 xl:pt-[92px]">
-            <Card className="bg-card/80 shadow-[0_14px_42px_rgba(0,0,0,0.18)]">
+            <Card className="bg-[#121817]/80 shadow-[0_14px_42px_rgba(0,0,0,0.18)]">
               <CardHeader className="p-5 pb-4">
                 <CardTitle className="text-lg">Before you upload</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 p-5 pt-0">
                 {tips.map((tip) => (
-                  <div key={tip} className="flex gap-3 rounded-2xl border border-border bg-background/90 p-4 transition duration-150 ease-out hover:border-primary/35 hover:bg-muted/40">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#22C55E]" aria-hidden="true" />
+                  <div key={tip} className="flex gap-3 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/80 p-4 transition duration-150 ease-out hover:border-[#A7C957]/35 hover:bg-[#151C19]">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#A7C957]" aria-hidden="true" />
                     <p className="text-sm leading-6 text-muted-foreground">{tip}</p>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            <Card className="border-primary/25 bg-primary/10 shadow-[0_14px_42px_rgba(59,130,246,0.08)]">
+            <Card className="border-[#6BAA9C]/25 bg-[#6BAA9C]/10 shadow-[0_14px_42px_rgba(107,170,156,0.08)]">
               <CardContent className="p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#6BAA9C]/15 text-[#9BCBC2]">
                   <ShieldCheck className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <h2 className="mt-4 text-lg font-semibold text-foreground">Private by design</h2>
@@ -610,7 +614,7 @@ export default function UploadPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-card/80">
+            <Card className="bg-[#121817]/80">
               <CardHeader className="p-5 pb-4">
                 <CardTitle className="text-lg">Recent examples</CardTitle>
               </CardHeader>
@@ -622,16 +626,16 @@ export default function UploadPage() {
                     type="button"
                     onClick={() => router.push("/contracts/demo-analysis")}
                     disabled={isBusy}
-                    className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-background/90 p-4 text-left transition duration-150 ease-out hover:border-primary/50 hover:bg-muted/50 hover:shadow-[0_12px_32px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group flex w-full items-center gap-3 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/80 p-4 text-left transition duration-150 ease-out hover:border-[#D9B76E]/50 hover:bg-[#151C19] hover:shadow-[0_12px_32px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#6BAA9C]/25 bg-[#6BAA9C]/10 text-[#9BCBC2]">
                       <FileIcon fileName={example.name} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium leading-6 text-foreground">{example.name}</p>
                       <p className="text-xs leading-5 text-muted-foreground">Use sample for mock analysis</p>
                     </div>
-                    <span className="flex items-center gap-1 text-xs font-semibold text-primary opacity-90 transition duration-150 ease-out group-hover:translate-x-0.5 group-hover:opacity-100">
+                    <span className="flex items-center gap-1 text-xs font-semibold text-[#D9B76E] opacity-90 transition duration-150 ease-out group-hover:translate-x-0.5 group-hover:opacity-100">
                       Use sample
                       <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                     </span>

@@ -42,11 +42,11 @@ const defaultWorkspaceName = "Apex Workspace";
 
 const content = {
   login: {
-    badge: "AI legal intelligence",
-    headline: "Legal intelligence, ready when you are.",
-    subtext: "Run contract risk analysis, ask document-aware questions, and generate export-ready reports with LexAI.",
+    badge: "Review workflow",
+    headline: "Review contracts before signing.",
+    subtext: "Open risky clauses, reports, and contract questions from one focused workspace.",
     title: "Welcome back",
-    subtitle: "Log in to continue reviewing legal documents.",
+    subtitle: "Continue your contract review workflow.",
     primaryCta: "Log in",
     footer: "Don't have an account?",
     footerLink: "Sign up",
@@ -54,28 +54,28 @@ const content = {
     features: [
       {
         title: "Contract risk analysis",
-        description: "Understand contracts and surface key risks instantly.",
+        description: "Surface liability, payment, privacy, and termination risks.",
         icon: WandSparkles
       },
       {
-        title: "Clause & Risk Detection",
-        description: "Identify important clauses and potential red flags.",
+        title: "Clause review",
+        description: "Find the clauses that need business or legal attention.",
         icon: FileSearch
       },
       {
-        title: "Export-ready reports",
-        description: "Generate clear summaries and export-ready reports.",
+        title: "Plain-English reports",
+        description: "Prepare concise summaries for counsel and stakeholders.",
         icon: CheckCircle2
       }
     ]
   },
   signup: {
-    badge: "Build your legal intelligence workspace",
-    headline: "Start reviewing contracts with AI in minutes.",
+    badge: "Contract review workspace",
+    headline: "Create a focused place for legal review.",
     subtext:
-      "Upload documents, understand legal risks, ask clause-aware questions, and export professional reports.",
-    title: "Create your workspace",
-    subtitle: "Start your LexAI legal review workspace.",
+      "Upload agreements, inspect risky clauses, ask grounded questions, and prepare plain-English reports.",
+    title: "Create your review workspace",
+    subtitle: "Set up LexAI for contract review.",
     primaryCta: "Create account",
     footer: "Already have an account?",
     footerLink: "Log in",
@@ -83,17 +83,17 @@ const content = {
     features: [
       {
         title: "Upload contracts",
-        description: "Bring PDFs and agreements into a focused review workspace.",
+        description: "Bring PDFs, DOCX files, and scans into the review queue.",
         icon: FileSearch
       },
       {
-        title: "Ask document-aware AI",
-        description: "Get answers grounded in clauses, risks, and obligations.",
+        title: "Ask about clauses",
+        description: "Get answers grounded in the current review file.",
         icon: Sparkles
       },
       {
-        title: "Export-ready reports",
-        description: "Package findings into clear summaries for stakeholders.",
+        title: "Review reports",
+        description: "Package findings into clear summaries before signing.",
         icon: CheckCircle2
       }
     ]
@@ -102,7 +102,7 @@ const content = {
 
 const premiumInputClass =
   "lexai-auth-input h-12 rounded-xl pl-10";
-const fieldIconClass = "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8AA0C8]";
+const fieldIconClass = "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7E8A86]";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -170,10 +170,10 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     if (/\d/.test(password)) score += 1;
     if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-    if (score >= 4) return { label: "Strong", value: 100, color: "bg-[#22C55E]" };
-    if (score >= 2) return { label: "Good", value: 66, color: "bg-[#3B82F6]" };
-    if (score === 1) return { label: "Weak", value: 34, color: "bg-[#F59E0B]" };
-    return { label: "Minimum 8 characters", value: 0, color: "bg-muted" };
+    if (score >= 4) return { label: "Strong", value: 100, color: "bg-[#A7C957]" };
+    if (score >= 2) return { label: "Good", value: 66, color: "bg-[#D9B76E]" };
+    if (score === 1) return { label: "Weak", value: 34, color: "bg-[#C47A4A]" };
+    return { label: "Minimum 8 characters", value: 0, color: "bg-[#2C3632]" };
   }, [password]);
 
   function validateForm() {
@@ -250,15 +250,33 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
   return (
     <PageShell>
-      <section className="relative isolate overflow-hidden bg-[#0D1117]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_16%,rgba(59,130,246,0.24),transparent_32rem),radial-gradient(circle_at_84%_20%,rgba(139,92,246,0.24),transparent_34rem),radial-gradient(circle_at_56%_92%,rgba(59,130,246,0.08),transparent_24rem),linear-gradient(rgba(248,250,252,0.034)_1px,transparent_1px),linear-gradient(90deg,rgba(248,250,252,0.034)_1px,transparent_1px)] bg-[size:auto,auto,auto,64px_64px,64px_64px]"
-        />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-gradient-to-b from-[#1F2937]/70 to-transparent" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] [background-image:radial-gradient(circle_at_center,#ffffff_1px,transparent_1px)] [background-size:18px_18px]" />
+      <section className="relative isolate overflow-hidden bg-[#0B0F0E]">
+        <div aria-hidden="true" className="auth-chaos-background">
+          <Image
+            src="/brand/from-chaos-to-clarity.png"
+            alt=""
+            fill
+            sizes="100vw"
+            className="scale-105 object-cover opacity-[0.26] blur-[8px] saturate-[0.86]"
+          />
+          <div className="absolute inset-0 bg-[#0B0F0E]/76" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_68%_28%,rgba(217,183,110,0.14),transparent_30rem),radial-gradient(ellipse_at_18%_78%,rgba(167,201,87,0.12),transparent_28rem)]" />
+        </div>
+        <div aria-hidden="true" className="cinematic-bg z-[1] opacity-[0.6]">
+          <div className="cinematic-bg-grid" />
+          <span className="ambient-glow ambient-sage" />
+          <span className="ambient-glow ambient-gold" />
+          <span className="cinematic-bg-document cinematic-bg-document-one" />
+          <span className="cinematic-bg-document cinematic-bg-document-two" />
+          <span className="cinematic-bg-document cinematic-bg-document-three" />
+          <span className="cinematic-bg-scan cinematic-bg-scan-one" />
+          <span className="cinematic-bg-scan cinematic-bg-scan-two" />
+          <span className="cinematic-bg-marker cinematic-bg-marker-one" />
+          <span className="cinematic-bg-marker cinematic-bg-marker-two" />
+          <span className="cinematic-bg-marker cinematic-bg-marker-three" />
+        </div>
 
-        <div className={cn("container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-8 lg:grid-cols-[1.03fr_0.97fr]", isSignup ? "lg:py-4" : "lg:py-14")}>
+        <div className={cn("container relative z-10 grid min-h-[calc(100vh-4rem)] items-center gap-10 py-8 lg:grid-cols-[1.03fr_0.97fr]", isSignup ? "lg:py-4" : "lg:py-14")}>
           <motion.aside
             initial={entrance}
             animate={{ opacity: 1, y: 0 }}
@@ -266,14 +284,14 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             className="order-2 hidden max-w-3xl lg:order-1 lg:block"
           >
             <BrandLockup size="large" />
-            <div className="mt-10 inline-flex h-8 items-center gap-2 rounded-full border border-[#8B5CF6]/45 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD] shadow-[0_0_34px_rgba(139,92,246,0.12)]">
+            <div className="mt-10 inline-flex h-8 items-center gap-2 rounded-full border border-[#D9B76E]/40 bg-[#D9B76E]/10 px-3 text-xs font-medium text-[#F0D89B] shadow-[0_0_34px_rgba(217,183,110,0.09)]">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               {copy.badge}
             </div>
-            <h1 className="mt-5 max-w-2xl text-5xl font-bold leading-tight text-foreground">
+            <h1 className="mt-5 max-w-2xl text-5xl font-bold leading-tight text-[#F5F5EF]">
               {copy.headline}
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">{copy.subtext}</p>
+            <p className="mt-5 max-w-xl text-lg leading-8 text-[#A2AAA5]">{copy.subtext}</p>
 
             <div className={cn("mt-9 grid max-w-2xl", isSignup ? "gap-3" : "gap-4")}>
               {copy.features.map((feature, index) => {
@@ -283,30 +301,30 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   <div
                     key={feature.title}
                     className={cn(
-                      "group flex items-start rounded-lg border border-white/10 bg-[#161B22]/82 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur transition hover:border-[#3B82F6]/35 hover:bg-[#1F2937]/70",
+                      "group flex items-start rounded-lg border border-[#2C3632] bg-[#121817]/82 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur transition hover:border-[#D9B76E]/35 hover:bg-[#1B2421]/70",
                       isSignup ? "gap-3 p-3.5" : "gap-4 p-4",
                       isSignup && index === 2 && "lexai-short-screen-hidden"
                     )}
                   >
-                    <span className={cn("flex shrink-0 items-center justify-center rounded-lg bg-[#3B82F6]/15 text-[#93C5FD] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition group-hover:bg-[#8B5CF6]/18 group-hover:text-[#C4B5FD]", isSignup ? "h-10 w-10" : "h-11 w-11")}>
+                    <span className={cn("flex shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(245,245,239,0.06)] transition", index === 0 ? "border-[#A7C957]/25 bg-[#A7C957]/10 text-[#A7C957]" : index === 1 ? "border-[#6BAA9C]/25 bg-[#6BAA9C]/10 text-[#9BCBC2]" : "border-[#D9B76E]/25 bg-[#D9B76E]/10 text-[#F0D89B]", isSignup ? "h-10 w-10" : "h-11 w-11")}>
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <span>
-                      <span className="block text-sm font-semibold leading-6 text-foreground">{feature.title}</span>
-                      <span className="mt-1 block text-sm leading-6 text-muted-foreground">{feature.description}</span>
+                      <span className="block text-sm font-semibold leading-6 text-[#F5F5EF]">{feature.title}</span>
+                      <span className="mt-1 block text-sm leading-6 text-[#A2AAA5]">{feature.description}</span>
                     </span>
                   </div>
                 );
               })}
             </div>
 
-            <div className={cn("flex max-w-xl items-start gap-4 rounded-lg border border-[#22C55E]/30 bg-[#22C55E]/10", isSignup ? "mt-6 p-3.5" : "mt-8 p-4")}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#22C55E]/15 text-[#86EFAC]">
+            <div className={cn("flex max-w-xl items-start gap-4 rounded-lg border border-[#6BAA9C]/30 bg-[#6BAA9C]/10", isSignup ? "mt-6 p-3.5" : "mt-8 p-4")}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#6BAA9C]/15 text-[#9BCBC2]">
                 <ShieldCheck className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-semibold leading-6 text-foreground">Enterprise-grade security</p>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                <p className="text-sm font-semibold leading-6 text-[#F5F5EF]">Secure review workspace</p>
+                <p className="mt-1 text-sm leading-6 text-[#A2AAA5]">
                   Your data is encrypted and never used to train models.
                 </p>
               </div>
@@ -319,13 +337,13 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             transition={{ duration: 0.25, delay: shouldReduceMotion ? 0 : 0.08, ease: "easeOut" }}
             className="relative order-1 mx-auto w-full max-w-[33rem] lg:order-2"
           >
-            <div aria-hidden="true" className="absolute -inset-8 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_50%_12%,rgba(139,92,246,0.28),transparent_22rem),radial-gradient(circle_at_14%_88%,rgba(59,130,246,0.22),transparent_18rem)] blur-xl" />
-            <Card className="overflow-hidden rounded-xl border-[#8B5CF6]/22 bg-[#161B22]/88 shadow-[0_30px_110px_rgba(0,0,0,0.48),0_0_0_1px_rgba(255,255,255,0.035),0_0_80px_rgba(59,130,246,0.16)] backdrop-blur-2xl">
+            <div aria-hidden="true" className="absolute -inset-8 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_50%_12%,rgba(217,183,110,0.2),transparent_22rem),radial-gradient(circle_at_14%_88%,rgba(167,201,87,0.16),transparent_18rem)] blur-xl" />
+            <Card className="overflow-hidden rounded-xl border-[#2C3632] bg-[#121817]/90 shadow-[0_30px_110px_rgba(0,0,0,0.48),0_0_0_1px_rgba(245,245,239,0.035),0_0_80px_rgba(217,183,110,0.08)] backdrop-blur-2xl">
               <CardContent className={cn(isSignup ? "p-4 sm:p-5" : "p-7 sm:p-9")}>
                 <div className={cn("flex flex-col items-center text-center", isSignup ? "mb-4" : "mb-9")}>
                   <BrandLockup />
-                  <h2 className={cn("text-3xl font-semibold leading-9 text-foreground", isSignup ? "mt-3" : "mt-8")}>{copy.title}</h2>
-                  <p className={cn("max-w-sm text-sm text-muted-foreground", isSignup ? "mt-1.5 leading-5" : "mt-2 leading-6")}>{copy.subtitle}</p>
+                  <h2 className={cn("text-3xl font-semibold leading-9 text-[#F5F5EF]", isSignup ? "mt-3" : "mt-8")}>{copy.title}</h2>
+                  <p className={cn("max-w-sm text-sm text-[#A2AAA5]", isSignup ? "mt-1.5 leading-5" : "mt-2 leading-6")}>{copy.subtitle}</p>
                 </div>
 
                 <form className={cn(isSignup ? "space-y-3" : "space-y-5")} noValidate onSubmit={handleSubmit}>
@@ -388,7 +406,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                         suppressHydrationWarning
                         type="button"
                         onClick={() => setShowPassword((value) => !value)}
-                        className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-[#1F2937] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
+                        className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#A2AAA5] transition hover:bg-[#1B2421] hover:text-[#F5F5EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A7C957]"
                         aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
@@ -398,25 +416,25 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
                   {mode === "signup" ? (
                     <div id="password-strength" className="space-y-1.5" aria-live="polite">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-[#1F2937]">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[#2C3632]">
                         <div
                           className={cn("h-full rounded-full transition-all duration-200", passwordStrength.color)}
                           style={{ width: `${passwordStrength.value}%` }}
                         />
                       </div>
-                      <p className="text-xs leading-4 text-muted-foreground">Password strength: {passwordStrength.label}</p>
+                      <p className="text-xs leading-4 text-[#A2AAA5]">Password strength: {passwordStrength.label}</p>
                     </div>
                   ) : null}
 
                   {mode === "login" ? (
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <label className="flex items-center gap-2 text-muted-foreground">
+                      <label className="flex items-center gap-2 text-[#A2AAA5]">
                         <input
                           suppressHydrationWarning
                           type="checkbox"
                           checked={remember}
                           onChange={(event) => setRemember(event.target.checked)}
-                          className="h-4 w-4 rounded border-white/20 bg-[#0D1117] accent-[#3B82F6]"
+                          className="h-4 w-4 rounded border-[#2C3632] bg-[#0B0F0E] accent-[#A7C957]"
                         />
                         Remember me
                       </label>
@@ -424,30 +442,30 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                         suppressHydrationWarning
                         type="button"
                         onClick={() => setForgotMessage("Password reset flow will be available in the production build.")}
-                        className="text-[#93C5FD] transition hover:text-[#BFDBFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
+                        className="text-[#D9B76E] transition hover:text-[#F0D89B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A7C957]"
                       >
                         Forgot password?
                       </button>
                     </div>
                   ) : (
                     <Field error={errors.terms} errorId="terms-error" compact>
-                      <label className="flex items-start gap-3 text-sm leading-5 text-muted-foreground">
+                      <label className="flex items-start gap-3 text-sm leading-5 text-[#A2AAA5]">
                         <input
                           suppressHydrationWarning
                           type="checkbox"
                           checked={terms}
                           onChange={(event) => setTerms(event.target.checked)}
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-[#0D1117] accent-[#3B82F6]"
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-[#2C3632] bg-[#0B0F0E] accent-[#A7C957]"
                           aria-invalid={Boolean(errors.terms)}
                           aria-describedby={errors.terms ? "terms-error" : undefined}
                         />
                         <span>
                           I agree to the{" "}
-                          <Link href="/signup" className="text-[#93C5FD] hover:text-[#BFDBFE]">
+                          <Link href="/signup" className="text-[#D9B76E] hover:text-[#F0D89B]">
                             Terms
                           </Link>{" "}
                           and{" "}
-                          <Link href="/signup" className="text-[#93C5FD] hover:text-[#BFDBFE]">
+                          <Link href="/signup" className="text-[#D9B76E] hover:text-[#F0D89B]">
                             Privacy Policy
                           </Link>
                         </span>
@@ -455,12 +473,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                     </Field>
                   )}
 
-                  {forgotMessage ? <p className="rounded-lg border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-3 py-2 text-sm leading-6 text-[#BFDBFE]">{forgotMessage}</p> : null}
-                  {errors.form ? <p className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-sm leading-6 text-[#FCA5A5]">{errors.form}</p> : null}
+                  {forgotMessage ? <p className="rounded-lg border border-[#D9B76E]/30 bg-[#D9B76E]/10 px-3 py-2 text-sm leading-6 text-[#F0D89B]">{forgotMessage}</p> : null}
+                  {errors.form ? <p className="rounded-lg border border-[#D66A5E]/30 bg-[#D66A5E]/10 px-3 py-2 text-sm leading-6 text-[#E89A92]">{errors.form}</p> : null}
 
                   <Button
                     type="submit"
-                    className="h-12 w-full gap-2 rounded-xl bg-[#3B82F6] shadow-[0_16px_34px_rgba(59,130,246,0.28)] hover:bg-[#2563EB] hover:shadow-[0_18px_42px_rgba(59,130,246,0.34)]"
+                    className="h-12 w-full gap-2 rounded-xl bg-[#A7C957] text-[#0B0F0E] shadow-[0_16px_34px_rgba(167,201,87,0.2)] hover:bg-[#B8D86C] hover:shadow-[0_18px_42px_rgba(167,201,87,0.24)]"
                     disabled={isSubmitting || googleLoading}
                   >
                     {isSubmitting ? <Spinner /> : null}
@@ -478,7 +496,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full gap-3 rounded-xl border-[#E5E7EB] bg-white font-medium text-[#1F2937] shadow-[0_12px_28px_rgba(0,0,0,0.2)] hover:border-white hover:bg-[#F9FAFB] hover:text-[#111827]"
+                  className="h-12 w-full gap-3 rounded-xl border-[#D9B76E]/45 bg-white font-medium text-[#18140F] shadow-[0_12px_28px_rgba(0,0,0,0.2)] hover:border-[#D9B76E] hover:bg-[#F5F5EF] hover:text-[#0B0F0E]"
                   onClick={handleGoogle}
                   disabled={isSubmitting || googleLoading}
                 >
@@ -486,17 +504,17 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   {googleLoading ? "Connecting" : "Continue with Google"}
                 </Button>
 
-                <p className={cn("text-center text-sm leading-6 text-muted-foreground", isSignup ? "mt-3" : "mt-7")}>
+                <p className={cn("text-center text-sm leading-6 text-[#A2AAA5]", isSignup ? "mt-3" : "mt-7")}>
                   {copy.footer}{" "}
-                  <Link href={copy.footerHref} className="font-medium text-[#93C5FD] transition hover:text-[#BFDBFE]">
+                  <Link href={copy.footerHref} className="font-medium text-[#D9B76E] transition hover:text-[#F0D89B]">
                     {copy.footerLink}
                   </Link>
                 </p>
               </CardContent>
             </Card>
 
-            <div className="mt-6 flex items-center justify-center gap-3 text-center text-xs leading-5 text-muted-foreground lg:hidden">
-              <ShieldCheck className="h-4 w-4 text-[#86EFAC]" aria-hidden="true" />
+            <div className="mt-6 flex items-center justify-center gap-3 text-center text-xs leading-5 text-[#A2AAA5] lg:hidden">
+              <ShieldCheck className="h-4 w-4 text-[#A7C957]" aria-hidden="true" />
               Enterprise-grade security. Your data is encrypted and never used to train models.
             </div>
           </motion.div>
@@ -510,11 +528,11 @@ function BrandLockup({ size = "compact" }: { size?: "compact" | "large" }) {
   return (
     <div className={cn("flex", size === "compact" && "justify-center")}>
       <Image
-        src="/LexAI-horizon.png"
+        src="/brand/lexai-logo-horizontal.png"
         alt="LexAI"
-        width={size === "large" ? 270 : 178}
-        height={size === "large" ? 90 : 59}
-        className={cn("h-auto object-contain drop-shadow-[0_16px_34px_rgba(59,130,246,0.18)]", size === "large" ? "w-[270px]" : "w-[178px]")}
+        width={size === "large" ? 230 : 190}
+        height={size === "large" ? 75 : 62}
+        className={cn("h-auto object-contain drop-shadow-[0_16px_34px_rgba(217,183,110,0.14)]", size === "large" ? "w-[230px]" : "w-[190px]")}
         priority
       />
     </div>
@@ -536,7 +554,7 @@ function Field({
     <div className={cn(compact ? "space-y-1.5" : "space-y-2")}>
       {children}
       {error ? (
-        <p id={errorId} className={cn("text-sm text-[#FCA5A5]", compact ? "leading-5" : "leading-6")}>
+        <p id={errorId} className={cn("text-sm text-[#D66A5E]", compact ? "leading-5" : "leading-6")}>
           {error}
         </p>
       ) : null}

@@ -53,30 +53,30 @@ const notificationDefaults = {
   exportActivity: true
 };
 
-type Tone = "success" | "warning" | "error" | "neutral" | "purple" | "primary";
+type Tone = "success" | "warning" | "error" | "neutral" | "gold" | "teal";
 
 function SettingCard({
   title,
   icon: Icon,
   children,
   description,
-  accent = "primary"
+  accent = "teal"
 }: {
   title: string;
   icon: ElementType;
   children: ReactNode;
   description?: string;
-  accent?: "primary" | "purple" | "success" | "warning";
+  accent?: "teal" | "gold" | "success" | "warning";
 }) {
   const accentClass = {
-    primary: "border-[#3B82F6]/35 bg-[#3B82F6]/10 text-[#BFDBFE]",
-    purple: "border-[#8B5CF6]/35 bg-[#8B5CF6]/10 text-[#C4B5FD]",
-    success: "border-[#22C55E]/35 bg-[#22C55E]/10 text-[#86EFAC]",
-    warning: "border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#FCD34D]"
+    teal: "border-[#6BAA9C]/35 bg-[#6BAA9C]/10 text-[#9BCBC2]",
+    gold: "border-[#D9B76E]/35 bg-[#D9B76E]/10 text-[#F0D89B]",
+    success: "border-[#A7C957]/35 bg-[#A7C957]/10 text-[#D7E8A5]",
+    warning: "border-[#C47A4A]/35 bg-[#C47A4A]/10 text-[#E4AD89]"
   }[accent];
 
   return (
-    <Card className="border-border/90 bg-[#161B22]/95 shadow-[0_16px_48px_rgba(0,0,0,0.22)] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
+    <Card className="border-[#2C3632]/90 bg-[#121817]/95 shadow-[0_16px_48px_rgba(0,0,0,0.22)] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
       <CardHeader className="p-5 sm:p-6">
         <div className="flex items-start gap-4">
           <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border", accentClass)}>
@@ -116,7 +116,7 @@ function SettingsInput({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 rounded-xl border-[#334155] bg-[#0D1117]/90 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#3B82F6]/45 focus-visible:border-[#3B82F6] focus-visible:ring-[#3B82F6] focus-visible:ring-offset-0 focus-visible:shadow-[0_0_0_4px_rgba(59,130,246,0.12)]"
+        className="h-12 rounded-xl border-[#2C3632] bg-[#0B0F0E]/90 text-foreground shadow-[inset_0_1px_0_rgba(245,245,239,0.04)] hover:border-[#D9B76E]/45 focus-visible:border-[#A7C957] focus-visible:ring-[#A7C957] focus-visible:ring-offset-0 focus-visible:shadow-[0_0_0_4px_rgba(167,201,87,0.12)]"
       />
     </div>
   );
@@ -124,12 +124,12 @@ function SettingsInput({
 
 function StatusBadge({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
   const tones = {
-    success: "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]",
-    warning: "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]",
-    error: "border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FCA5A5]",
-    neutral: "border-border bg-[#1F2937] text-muted-foreground",
-    purple: "border-[#8B5CF6]/40 bg-[#8B5CF6]/10 text-[#C4B5FD]",
-    primary: "border-[#3B82F6]/40 bg-[#3B82F6]/10 text-[#BFDBFE]"
+    success: "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]",
+    warning: "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]",
+    error: "border-[#D66A5E]/40 bg-[#D66A5E]/10 text-[#E89A92]",
+    neutral: "border-[#2C3632] bg-[#151C19] text-muted-foreground",
+    gold: "border-[#D9B76E]/40 bg-[#D9B76E]/10 text-[#F0D89B]",
+    teal: "border-[#6BAA9C]/40 bg-[#6BAA9C]/10 text-[#9BCBC2]"
   };
 
   return <span className={cn("inline-flex min-h-7 items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", tones[tone])}>{children}</span>;
@@ -137,12 +137,12 @@ function StatusBadge({ children, tone = "neutral" }: { children: ReactNode; tone
 
 function InlineNote({ message, tone = "success" }: { message: string; tone?: Tone }) {
   const colors = {
-    success: "border-[#22C55E]/30 bg-[#22C55E]/10 text-[#86EFAC]",
-    warning: "border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#FCD34D]",
-    error: "border-[#EF4444]/30 bg-[#EF4444]/10 text-[#FCA5A5]",
-    neutral: "border-border bg-[#1F2937] text-muted-foreground",
-    purple: "border-[#8B5CF6]/30 bg-[#8B5CF6]/10 text-[#C4B5FD]",
-    primary: "border-[#3B82F6]/30 bg-[#3B82F6]/10 text-[#BFDBFE]"
+    success: "border-[#A7C957]/30 bg-[#A7C957]/10 text-[#D7E8A5]",
+    warning: "border-[#C47A4A]/30 bg-[#C47A4A]/10 text-[#E4AD89]",
+    error: "border-[#D66A5E]/30 bg-[#D66A5E]/10 text-[#E89A92]",
+    neutral: "border-[#2C3632] bg-[#151C19] text-muted-foreground",
+    gold: "border-[#D9B76E]/30 bg-[#D9B76E]/10 text-[#F0D89B]",
+    teal: "border-[#6BAA9C]/30 bg-[#6BAA9C]/10 text-[#9BCBC2]"
   };
 
   return (
@@ -157,18 +157,18 @@ function SegmentedControl({
   options,
   value,
   onChange,
-  accent = "primary"
+  accent = "teal"
 }: {
   label: string;
   options: string[];
   value: string;
   onChange: (value: string) => void;
-  accent?: "primary" | "purple";
+  accent?: "teal" | "gold";
 }) {
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
-      <div className="grid gap-2 rounded-2xl border border-border bg-[#0D1117]/75 p-1.5 sm:grid-cols-3" role="radiogroup" aria-label={label}>
+      <div className="grid gap-2 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/75 p-1.5 sm:grid-cols-3" role="radiogroup" aria-label={label}>
         {options.map((option) => {
           const active = value === option;
           return (
@@ -182,10 +182,10 @@ function SegmentedControl({
               className={cn(
                 "min-h-10 rounded-xl px-3 py-2 text-sm font-medium transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active
-                  ? accent === "purple"
-                    ? "bg-[#8B5CF6] text-white shadow-[0_10px_28px_rgba(139,92,246,0.28)]"
-                    : "bg-[#3B82F6] text-white shadow-[0_10px_28px_rgba(59,130,246,0.26)]"
-                  : "text-muted-foreground hover:bg-[#1F2937] hover:text-foreground"
+                  ? accent === "gold"
+                    ? "bg-[#D9B76E] text-[#18140F] shadow-[0_10px_28px_rgba(217,183,110,0.2)]"
+                    : "bg-[#6BAA9C] text-[#0B0F0E] shadow-[0_10px_28px_rgba(107,170,156,0.18)]"
+                  : "text-muted-foreground hover:bg-[#151C19] hover:text-foreground"
               )}
             >
               {option}
@@ -202,16 +202,16 @@ function ToggleSwitch({
   description,
   checked,
   onChange,
-  accent = "primary"
+  accent = "teal"
 }: {
   label: string;
   description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
-  accent?: "primary" | "purple";
+  accent?: "teal" | "gold";
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-[#0D1117]/70 p-4">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4">
       <span className="min-w-0">
         <span className="block text-sm font-medium leading-6 text-foreground">{label}</span>
         {description ? <span className="mt-1 block text-sm leading-6 text-muted-foreground">{description}</span> : null}
@@ -226,10 +226,10 @@ function ToggleSwitch({
         className={cn(
           "relative h-7 w-12 shrink-0 rounded-full border transition duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           checked
-            ? accent === "purple"
-              ? "border-[#8B5CF6] bg-[#8B5CF6]"
-              : "border-[#3B82F6] bg-[#3B82F6]"
-            : "border-[#334155] bg-[#1F2937]"
+            ? accent === "gold"
+              ? "border-[#A7C957] bg-[#A7C957]"
+              : "border-[#A7C957] bg-[#A7C957]"
+            : "border-[#2C3632] bg-[#151C19]"
         )}
       >
         <span
@@ -269,8 +269,8 @@ function ChoicePills({
             className={cn(
               "min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               value === option
-                ? "border-[#3B82F6]/70 bg-[#3B82F6]/15 text-[#BFDBFE]"
-                : "border-border bg-[#0D1117]/70 text-muted-foreground hover:border-[#3B82F6]/45 hover:text-foreground"
+                ? "border-[#D9B76E]/70 bg-[#D9B76E]/15 text-[#F0D89B]"
+                : "border-[#2C3632] bg-[#0B0F0E]/70 text-muted-foreground hover:border-[#D9B76E]/45 hover:text-foreground"
             )}
           >
             {option}
@@ -314,10 +314,10 @@ function ConfirmationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#0D1117]/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title">
-      <div className="w-full max-w-md rounded-2xl border border-[#EF4444]/35 bg-[#161B22] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] motion-safe:animate-[lexai-section-in_220ms_ease-out]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#0B0F0E]/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title">
+      <div className="w-full max-w-md rounded-2xl border border-[#D66A5E]/35 bg-[#121817] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] motion-safe:animate-[lexai-section-in_220ms_ease-out]">
         <div className="flex items-start justify-between gap-4">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#EF4444]/35 bg-[#EF4444]/10 text-[#FCA5A5]">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#D66A5E]/35 bg-[#D66A5E]/10 text-[#E89A92]">
             <Trash2 className="h-5 w-5" aria-hidden="true" />
           </span>
           <button
@@ -325,7 +325,7 @@ function ConfirmationModal({
             type="button"
             aria-label="Close delete workspace dialog"
             onClick={onClose}
-            className="rounded-lg p-2 text-muted-foreground transition hover:bg-[#1F2937] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-[#151C19] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -342,7 +342,7 @@ function ConfirmationModal({
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
-            className="w-full bg-[#EF4444] shadow-[0_10px_28px_rgba(239,68,68,0.25)] hover:bg-[#DC2626] sm:w-auto"
+            className="w-full bg-[#D66A5E] text-[#0B0F0E] shadow-[0_10px_28px_rgba(214,106,94,0.22)] hover:bg-[#E57B70] sm:w-auto"
           >
             Confirm mock delete
           </Button>
@@ -354,7 +354,7 @@ function ConfirmationModal({
 
 function SummaryCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-[#161B22]/95 p-5 shadow-[0_14px_40px_rgba(0,0,0,0.2)]">
+    <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_14px_40px_rgba(0,0,0,0.2)]">
       <h2 className="text-base font-semibold leading-tight text-foreground">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
@@ -378,7 +378,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 py-1 text-xs font-medium text-[#C4B5FD]">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#D9B76E]/35 bg-[#D9B76E]/10 px-3 py-1 text-xs font-medium text-[#F0D89B]">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               Workspace settings
             </div>
@@ -387,7 +387,7 @@ export default function SettingsPage() {
               Manage your LexAI profile, workspace, AI preferences, and security controls.
             </p>
           </div>
-          <p className="max-w-sm rounded-2xl border border-border bg-[#161B22]/80 px-4 py-3 text-sm leading-6 text-muted-foreground">
+          <p className="max-w-sm rounded-2xl border border-[#2C3632] bg-[#121817]/80 px-4 py-3 text-sm leading-6 text-muted-foreground">
             Frontend-only demo preferences for the LexAI MVP.
           </p>
         </header>
@@ -436,26 +436,26 @@ export default function SettingsPage() {
               {workspaceNote ? <div className="mt-4"><InlineNote message={workspaceNote} /></div> : null}
             </SettingCard>
 
-            <SettingCard title="AI Preferences" icon={Sparkles} description="Tune how LexAI explains risk, recommendations, and analysis depth." accent="purple">
+            <SettingCard title="Review Preferences" icon={Sparkles} description="Tune how LexAI explains risk, recommendations, and analysis depth." accent="gold">
               <div className="space-y-5">
                 <SegmentedControl
                   label="Analysis depth"
                   options={["Quick", "Balanced", "Detailed"]}
                   value={aiPreferences.analysisDepth}
-                  accent="purple"
+                  accent="gold"
                   onChange={(analysisDepth) => setAiPreferences((current) => ({ ...current, analysisDepth }))}
                 />
                 <SegmentedControl
                   label="AI tone"
                   options={["Plain English", "Legal Professional", "Founder Friendly"]}
                   value={aiPreferences.tone}
-                  accent="purple"
+                  accent="gold"
                   onChange={(tone) => setAiPreferences((current) => ({ ...current, tone }))}
                 />
                 <div className="grid gap-3">
-                  <ToggleSwitch label="Include recommendations" checked={aiPreferences.includeRecommendations} accent="purple" onChange={(includeRecommendations) => setAiPreferences((current) => ({ ...current, includeRecommendations }))} />
-                  <ToggleSwitch label="Show confidence scores" checked={aiPreferences.showConfidence} accent="purple" onChange={(showConfidence) => setAiPreferences((current) => ({ ...current, showConfidence }))} />
-                  <ToggleSwitch label="Highlight risky clauses" checked={aiPreferences.highlightRiskyClauses} accent="purple" onChange={(highlightRiskyClauses) => setAiPreferences((current) => ({ ...current, highlightRiskyClauses }))} />
+                  <ToggleSwitch label="Include recommendations" checked={aiPreferences.includeRecommendations} accent="gold" onChange={(includeRecommendations) => setAiPreferences((current) => ({ ...current, includeRecommendations }))} />
+                  <ToggleSwitch label="Show confidence scores" checked={aiPreferences.showConfidence} accent="gold" onChange={(showConfidence) => setAiPreferences((current) => ({ ...current, showConfidence }))} />
+                  <ToggleSwitch label="Highlight risky clauses" checked={aiPreferences.highlightRiskyClauses} accent="gold" onChange={(highlightRiskyClauses) => setAiPreferences((current) => ({ ...current, highlightRiskyClauses }))} />
                 </div>
               </div>
             </SettingCard>
@@ -474,10 +474,10 @@ export default function SettingsPage() {
                 {[
                   ["Password", "Last changed 14 days ago", "success"],
                   ["Two-factor authentication", "Not enabled", "warning"],
-                  ["Active sessions", "2 devices", "primary"],
+                  ["Active sessions", "2 devices", "teal"],
                   ["Login alerts", "Enabled", "success"]
                 ].map(([label, value, tone]) => (
-                  <div key={label} className="flex flex-col gap-3 rounded-2xl border border-border bg-[#0D1117]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div key={label} className="flex flex-col gap-3 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <span>
                       <span className="block text-sm font-medium leading-6 text-foreground">{label}</span>
                       <span className="block text-sm leading-6 text-muted-foreground">{value}</span>
@@ -498,15 +498,15 @@ export default function SettingsPage() {
 
             <SettingCard title="Data & Privacy" icon={Database} description="Demo-only data controls and privacy posture for the MVP." accent="warning">
               <div className="grid gap-3">
-                <div className="flex flex-col gap-3 rounded-2xl border border-border bg-[#0D1117]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm font-medium text-foreground">Uploaded files</span>
                   <StatusBadge tone="neutral">Local frontend demo only</StatusBadge>
                 </div>
-                <div className="flex flex-col gap-3 rounded-2xl border border-border bg-[#0D1117]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm font-medium text-foreground">AI training</span>
                   <StatusBadge tone="success">Disabled</StatusBadge>
                 </div>
-                <div className="flex flex-col gap-3 rounded-2xl border border-border bg-[#0D1117]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm font-medium text-foreground">Data retention</span>
                   <StatusBadge tone="warning">30 days mock policy</StatusBadge>
                 </div>
@@ -516,12 +516,12 @@ export default function SettingsPage() {
                   <Download className="mr-2 h-4 w-4" aria-hidden="true" />
                   Download PDF
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setDeleteModalOpen(true)} className="w-full border-[#EF4444]/45 text-[#FCA5A5] hover:border-[#EF4444] hover:bg-[#EF4444]/10 sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => setDeleteModalOpen(true)} className="w-full border-[#D66A5E]/45 text-[#E89A92] hover:border-[#D66A5E] hover:bg-[#D66A5E]/10 sm:w-auto">
                   <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                   Delete workspace
                 </Button>
               </div>
-              {dataNote ? <div className="mt-4"><InlineNote message={dataNote} tone={dataNote.includes("delete") ? "warning" : "primary"} /></div> : null}
+              {dataNote ? <div className="mt-4"><InlineNote message={dataNote} tone={dataNote.includes("delete") ? "warning" : "teal"} /></div> : null}
             </SettingCard>
           </div>
 
@@ -543,11 +543,11 @@ export default function SettingsPage() {
             </SummaryCard>
 
             <SummaryCard title="Plan">
-              <div className="rounded-2xl border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 p-4">
+              <div className="rounded-2xl border border-[#D9B76E]/35 bg-[#D9B76E]/10 p-4">
                 <p className="text-lg font-semibold leading-tight text-foreground">LexAI Pro</p>
-                <p className="mt-2 text-sm leading-6 text-[#C4B5FD]">1,240 AI credits left</p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#0D1117]">
-                  <span className="block h-full w-[68%] rounded-full bg-[#8B5CF6]" />
+                <p className="mt-2 text-sm leading-6 text-[#F0D89B]">1,240 review credits left</p>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#0B0F0E]">
+                  <span className="block h-full w-[68%] rounded-full bg-[#D9B76E]" />
                 </div>
                 <p className="mt-2 text-xs font-medium text-muted-foreground">68% usage</p>
               </div>
@@ -555,7 +555,7 @@ export default function SettingsPage() {
                 <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
                 Upgrade plan
               </Button>
-              {billingNote ? <div className="mt-4"><InlineNote message={billingNote} tone="purple" /></div> : null}
+              {billingNote ? <div className="mt-4"><InlineNote message={billingNote} tone="gold" /></div> : null}
             </SummaryCard>
 
             <SummaryCard title="Security Status">

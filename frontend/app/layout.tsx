@@ -4,7 +4,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LexAI",
-  description: "AI-powered SaaS for legal document analysis."
+  description: "Contract review workspace for risky clauses, reports, and legal workflows.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -91,14 +91,14 @@ type ChatMessage = {
 
 function toneClasses(tone: string) {
   if (tone === "high") {
-    return "border-[#EF4444]/45 bg-[#EF4444]/10 text-[#FCA5A5]";
+    return "border-[#D66A5E]/45 bg-[#D66A5E]/10 text-[#E89A92]";
   }
 
   if (tone === "low") {
-    return "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]";
+    return "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]";
   }
 
-  return "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]";
+  return "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]";
 }
 
 function mockResponseFor(prompt: string, id: string): ChatMessage {
@@ -201,11 +201,11 @@ function mockResponseFor(prompt: string, id: string): ChatMessage {
 
 function StatusBadge({ children, tone = "ai" }: { children: React.ReactNode; tone?: "ai" | "medium" | "high" | "low" | "info" }) {
   const tones = {
-    ai: "border-[#8B5CF6]/45 bg-[#8B5CF6]/10 text-[#C4B5FD]",
-    medium: "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]",
-    high: "border-[#EF4444]/45 bg-[#EF4444]/10 text-[#FCA5A5]",
-    low: "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]",
-    info: "border-[#3B82F6]/45 bg-[#3B82F6]/10 text-[#BFDBFE]"
+    ai: "border-[#D9B76E]/45 bg-[#D9B76E]/10 text-[#F0D89B]",
+    medium: "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]",
+    high: "border-[#D66A5E]/45 bg-[#D66A5E]/10 text-[#E89A92]",
+    low: "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]",
+    info: "border-[#6BAA9C]/45 bg-[#6BAA9C]/10 text-[#9BCBC2]"
   };
 
   return <span className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
@@ -223,17 +223,17 @@ function ClauseReference({ message }: { message: ChatMessage }) {
       : "medium";
 
   return (
-    <div className="mt-3 rounded-xl border border-border/80 bg-[#0D1117]/70 p-3">
+    <div className="mt-3 rounded-xl border border-[#2C3632]/80 bg-[#0B0F0E]/70 p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#C4B5FD]">Referenced clause</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D9B76E]">Referenced clause</p>
           <p className="mt-1 text-sm font-semibold text-foreground">{message.clause.title}</p>
         </div>
         <StatusBadge tone={tone}>{message.clause.severity}</StatusBadge>
       </div>
       {message.clause.action ? (
-        <p className="mt-2 border-t border-border/70 pt-2 text-sm leading-6 text-muted-foreground">
-          <span className="font-semibold text-[#BFDBFE]">Recommended action: </span>
+        <p className="mt-2 border-t border-[#2C3632]/70 pt-2 text-sm leading-6 text-muted-foreground">
+          <span className="font-semibold text-[#F0D89B]">Recommended action: </span>
           {message.clause.action}
         </p>
       ) : null}
@@ -245,7 +245,7 @@ function GroundingLabel({ message }: { message: ChatMessage }) {
   const label = message.clause ? `References: ${message.clause.title} clause` : "Grounded in uploaded contract";
 
   return (
-    <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-[#8B5CF6]/20 bg-[#8B5CF6]/10 px-2.5 py-1 text-xs font-medium text-[#C4B5FD]">
+    <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-[#D9B76E]/25 bg-[#D9B76E]/10 px-2.5 py-1 text-xs font-medium text-[#F0D89B]">
       <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="truncate">{label}</span>
     </div>
@@ -258,7 +258,7 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
   return (
     <article className={`flex gap-3 motion-safe:animate-[lexai-chat-message-in_220ms_ease-out] ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? (
-        <span className="mt-7 hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#8B5CF6]/15 text-[#C4B5FD] shadow-[0_0_28px_rgba(139,92,246,0.18)] sm:flex">
+        <span className="mt-7 hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#6BAA9C]/15 text-[#9BCBC2] shadow-[0_0_28px_rgba(107,170,156,0.12)] sm:flex">
           <Bot className="h-5 w-5" aria-hidden="true" />
         </span>
       ) : null}
@@ -266,14 +266,14 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
       <div className={`min-w-0 ${isUser ? "order-first max-w-[560px]" : "w-full max-w-[900px]"}`}>
         <div className={`mb-1.5 flex items-center gap-2 ${isUser ? "justify-end" : ""}`}>
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{isUser ? "You" : "LexAI analyst"}</span>
-          {!isUser ? <StatusBadge tone="ai">AI answer</StatusBadge> : null}
+          {!isUser ? <StatusBadge tone="ai">LexAI answer</StatusBadge> : null}
         </div>
         <div
           className={[
             "rounded-2xl border p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)] sm:p-5",
             isUser
-              ? "border-[#3B82F6]/30 bg-[#3B82F6]/15 text-foreground"
-              : "border-[#8B5CF6]/30 bg-[#161B22]/95 shadow-[0_0_36px_rgba(139,92,246,0.09),0_8px_24px_rgba(0,0,0,0.18)]"
+              ? "border-[#2C3632] bg-[#1B2421]/85 text-foreground"
+              : "border-[#6BAA9C]/30 bg-[#121817]/95 shadow-[0_0_36px_rgba(107,170,156,0.08),0_8px_24px_rgba(0,0,0,0.18)]"
           ].join(" ")}
         >
           {!isUser ? <GroundingLabel message={message} /> : null}
@@ -281,9 +281,9 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
           {!isUser ? (
             <>
               <ClauseReference message={message} />
-              <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#0D1117]/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#0B0F0E]/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <ShieldCheck className="h-4 w-4 text-[#22C55E]" aria-hidden="true" />
+                  <ShieldCheck className="h-4 w-4 text-[#A7C957]" aria-hidden="true" />
                   Confidence: <span className="font-semibold text-foreground">{message.confidence}%</span>
                 </div>
                 {message.nextQuestion ? (
@@ -291,7 +291,7 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
                     suppressHydrationWarning
                     type="button"
                     onClick={() => onSuggestedQuestion(message.nextQuestion ?? "")}
-                    className="inline-flex items-center gap-2 text-left text-sm font-semibold text-primary transition duration-150 ease-out hover:text-[#93C5FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="inline-flex items-center gap-2 text-left text-sm font-semibold text-[#D9B76E] transition duration-150 ease-out hover:text-[#F0D89B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     aria-label={`Ask suggested next question: ${message.nextQuestion}`}
                   >
                     {message.nextQuestion}
@@ -310,14 +310,14 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-3" role="status" aria-label="LexAI is typing">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#8B5CF6]/15 text-[#C4B5FD]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#6BAA9C]/15 text-[#9BCBC2]">
         <Bot className="h-5 w-5" aria-hidden="true" />
       </span>
-      <div className="rounded-2xl border border-[#8B5CF6]/35 bg-[#161B22]/95 px-5 py-4 shadow-[0_0_30px_rgba(139,92,246,0.1)]">
+      <div className="rounded-2xl border border-[#6BAA9C]/35 bg-[#121817]/95 px-5 py-4 shadow-[0_0_30px_rgba(107,170,156,0.08)]">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-[#C4B5FD] motion-safe:animate-[lexai-typing-dot_1s_ease-in-out_infinite]" />
-          <span className="h-2 w-2 rounded-full bg-[#C4B5FD] motion-safe:animate-[lexai-typing-dot_1s_ease-in-out_150ms_infinite]" />
-          <span className="h-2 w-2 rounded-full bg-[#C4B5FD] motion-safe:animate-[lexai-typing-dot_1s_ease-in-out_300ms_infinite]" />
+          <span className="h-2 w-2 rounded-full bg-[#9BCBC2] motion-safe:animate-[lexai-typing-dot_1s_ease-in-out_infinite]" />
+          <span className="h-2 w-2 rounded-full bg-[#9BCBC2] motion-safe:animate-[lexai-typing-dot_1s_ease-in-out_150ms_infinite]" />
+          <span className="h-2 w-2 rounded-full bg-[#9BCBC2] motion-safe:animate-[lexai-typing-dot_1s_ease-in-out_300ms_infinite]" />
         </div>
       </div>
     </div>
@@ -459,24 +459,24 @@ export default function AiChatPage() {
     <DashboardShell>
       <div className="mx-auto max-w-[1480px] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
-          <main className="flex min-w-0 flex-col rounded-2xl border border-border bg-[#161B22]/70 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
-            <header className="border-b border-border/80 px-4 py-3.5 sm:px-5">
+          <main className="flex min-w-0 flex-col rounded-2xl border border-[#2C3632] bg-[#121817]/70 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+            <header className="border-b border-[#2C3632]/80 px-4 py-3.5 sm:px-5">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <StatusBadge tone="ai">
                       <Sparkles className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-                      {isFallback ? "Backend unavailable — showing demo data" : isLoadingSession ? "Loading session" : "AI Ready"}
+                      {isFallback ? "Backend unavailable - showing demo data" : isLoadingSession ? "Loading session" : "Review file loaded"}
                     </StatusBadge>
                     <StatusBadge tone="info">{session?.document?.title ?? "Vendor DPA.pdf"}</StatusBadge>
                   </div>
-                  <h1 className="text-2xl font-bold leading-tight text-foreground">{session?.title ?? "Ask LexAI"}</h1>
+                  <h1 className="text-2xl font-bold leading-tight text-foreground">Ask about this contract</h1>
                   <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                    Document-aware answers for {session?.document?.title ?? "Vendor Data Processing Agreement"}, grounded in clauses and risk findings.
+                    Questions are grounded in the current review file.
                   </p>
                 </div>
-                <div className="rounded-xl border border-[#8B5CF6]/25 bg-[#8B5CF6]/10 px-3 py-2 text-sm leading-5 text-muted-foreground xl:max-w-[300px] 2xl:max-w-[320px]">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#C4B5FD]">
+                <div className="rounded-xl border border-[#D9B76E]/25 bg-[#D9B76E]/10 px-3 py-2 text-sm leading-5 text-muted-foreground xl:max-w-[300px] 2xl:max-w-[320px]">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[#F0D89B]">
                     <MessageSquareText className="h-4 w-4" aria-hidden="true" />
                     Legal analyst mode
                   </div>
@@ -496,7 +496,7 @@ export default function AiChatPage() {
                       type="button"
                       onClick={() => sendPrompt(question)}
                       disabled={isSending}
-                      className="min-h-9 rounded-full border border-border bg-[#1F2937] px-3 py-1 text-sm font-medium leading-5 text-muted-foreground transition duration-150 ease-out hover:-translate-y-0.5 hover:border-[#8B5CF6]/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 sm:w-full sm:px-3 xl:min-h-8 xl:text-xs"
+                      className="min-h-9 rounded-full border border-[#2C3632] bg-[#151C19] px-3 py-1 text-sm font-medium leading-5 text-muted-foreground transition duration-150 ease-out hover:-translate-y-0.5 hover:border-[#D9B76E]/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 sm:w-full sm:px-3 xl:min-h-8 xl:text-xs"
                     >
                       {question}
                     </button>
@@ -513,12 +513,12 @@ export default function AiChatPage() {
               <div ref={messagesEndRef} aria-hidden="true" />
             </section>
 
-            <form onSubmit={handleSubmit} className="sticky bottom-3 z-10 mx-3 mb-3 rounded-2xl border border-border bg-[#161B22]/95 p-2.5 shadow-[0_16px_42px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:mx-4 sm:mb-4">
+            <form onSubmit={handleSubmit} className="sticky bottom-3 z-10 mx-3 mb-3 rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-2.5 shadow-[0_16px_42px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:mx-4 sm:mb-4">
               <label htmlFor="ai-chat-input" className="sr-only">
-                Ask LexAI about risks, clauses, obligations, or negotiation points
+                Ask about this contract
               </label>
-              <div className="flex min-w-0 items-end gap-2.5 rounded-xl border border-border bg-[#0D1117] p-2 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-ring">
-                <Sparkles className="mb-2.5 hidden h-5 w-5 shrink-0 text-[#8B5CF6] sm:block" aria-hidden="true" />
+              <div className="flex min-w-0 items-end gap-2.5 rounded-xl border border-[#2C3632] bg-[#0B0F0E] p-2 focus-within:border-[#A7C957]/60 focus-within:ring-2 focus-within:ring-ring">
+                <Sparkles className="mb-2.5 hidden h-5 w-5 shrink-0 text-[#D9B76E] sm:block" aria-hidden="true" />
                 <textarea
                   ref={inputRef}
                   id="ai-chat-input"
@@ -538,23 +538,23 @@ export default function AiChatPage() {
             </form>
           </main>
 
-          <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start" aria-label="Document context and AI confidence">
-            <section className="rounded-2xl border border-border bg-[#161B22]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.22)]">
+          <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start" aria-label="Document context and review confidence">
+            <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.22)]">
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3B82F6]/10 text-[#BFDBFE]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#6BAA9C]/10 text-[#9BCBC2]">
                   <FileText className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B5CF6]">Active document</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7E8A86]">Active document</p>
                   <h2 className="mt-1.5 text-lg font-semibold leading-tight text-foreground">{session?.document?.title ?? "Vendor Data Processing Agreement"}</h2>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 p-3">
-                  <p className="text-xs font-medium text-[#FCD34D]">Risk</p>
+                <div className="rounded-xl border border-[#C47A4A]/30 bg-[#C47A4A]/10 p-3">
+                  <p className="text-xs font-medium text-[#E4AD89]">Risk</p>
                   <p className="mt-1.5 text-lg font-semibold text-foreground">{(session?.document?.riskScore ?? 74) >= 80 ? "High" : (session?.document?.riskScore ?? 74) >= 50 ? "Medium" : "Low"}</p>
                 </div>
-                <div className="rounded-xl border border-border bg-[#1F2937] p-3">
+                <div className="rounded-xl border border-[#2C3632] bg-[#151C19] p-3">
                   <p className="text-xs font-medium text-muted-foreground">Score</p>
                   <p className="mt-1.5 text-lg font-semibold text-foreground">{session?.document?.riskScore ?? 74} / 100</p>
                 </div>
@@ -562,16 +562,16 @@ export default function AiChatPage() {
               <Button asChild variant="outline" className="mt-4 w-full">
                 <Link href="/reports/demo-report">
                   <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-                  View Report
+                  View report
                 </Link>
               </Button>
             </section>
 
-            <section className="rounded-2xl border border-border bg-[#161B22]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+            <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
               <h2 className="text-lg font-semibold leading-tight text-foreground">Referenced clauses</h2>
               <div className="mt-3 space-y-2.5">
                 {referencedClauses.map((clause) => (
-                  <div key={clause.name} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-[#0D1117]/70 px-3 py-2.5">
+                  <div key={clause.name} className="flex items-center justify-between gap-3 rounded-xl border border-[#2C3632] bg-[#0B0F0E]/70 px-3 py-2.5">
                     <span className="text-sm font-medium text-foreground">{clause.name}</span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${toneClasses(clause.tone)}`}>{clause.detail}</span>
                   </div>
@@ -579,13 +579,13 @@ export default function AiChatPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#8B5CF6]/35 bg-[#161B22]/95 p-5 shadow-[0_0_36px_rgba(139,92,246,0.12),0_16px_48px_rgba(0,0,0,0.2)]">
+            <section className="rounded-2xl border border-[#D9B76E]/35 bg-[#121817]/95 p-5 shadow-[0_0_36px_rgba(217,183,110,0.08),0_16px_48px_rgba(0,0,0,0.2)]">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#8B5CF6]/15 text-[#C4B5FD]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D9B76E]/15 text-[#F0D89B]">
                   <Bot className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B5CF6]">AI confidence</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7E8A86]">Review confidence</p>
                   <h2 className="mt-1 text-lg font-semibold leading-tight text-foreground">Grounded answer set</h2>
                 </div>
               </div>
@@ -601,13 +601,13 @@ export default function AiChatPage() {
                     <div key={item.label}>
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <Icon className="h-4 w-4 shrink-0 text-[#6BAA9C]" aria-hidden="true" />
                           <p className="truncate text-sm text-muted-foreground">{item.label}</p>
                         </div>
                         <p className="shrink-0 text-sm font-semibold text-foreground">{item.value}</p>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-[#1F2937]" aria-hidden="true">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${item.progress}%` }} />
+                      <div className="h-2 overflow-hidden rounded-full bg-[#2C3632]" aria-hidden="true">
+                        <div className="h-full rounded-full bg-[#D9B76E]" style={{ width: `${item.progress}%` }} />
                       </div>
                     </div>
                   );
@@ -615,11 +615,11 @@ export default function AiChatPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border bg-[#161B22]/70 p-4">
+            <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/70 p-4">
               <div className="flex items-start gap-3">
                 <Scale className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm leading-6 text-muted-foreground">
-                  LexAI provides AI-generated document intelligence and does not replace professional legal advice.
+                  LexAI review output does not replace professional legal advice.
                 </p>
               </div>
             </section>

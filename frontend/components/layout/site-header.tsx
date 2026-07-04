@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 
-import { Button } from "@/components/ui/button";
+import { SiteAuthActions } from "@/components/layout/auth-account";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -14,11 +14,11 @@ export function SiteHeader() {
       <div className="container flex h-16 items-center justify-between gap-6">
         <Link href="/" className="flex items-center gap-3 font-semibold">
           <Image
-            src="/LexAI-horizon.png"
+            src="/brand/lexai-logo-horizontal.png"
             alt="LexAI"
-            width={118}
-            height={39}
-            className="h-auto w-[104px] object-contain sm:w-[118px]"
+            width={148}
+            height={48}
+            className="h-auto w-[132px] object-contain sm:w-[148px]"
             priority
           />
         </Link>
@@ -31,14 +31,7 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/login">Login</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/signup">Sign up</Link>
-          </Button>
-        </div>
+        <SiteAuthActions />
       </div>
     </header>
   );

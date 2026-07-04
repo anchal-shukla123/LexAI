@@ -1,225 +1,68 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
+  ArrowRight,
   BarChart3,
-  Bell,
-  CheckCircle2,
-  ChevronRight,
-  FileText,
-  Home,
-  Menu,
+  LogIn,
+  FileSearch,
+  FolderOpen,
   MessageSquareText,
-  Moon,
-  Plus,
-  Search,
-  Settings,
+  Radio,
   ShieldAlert,
-  Sparkles,
-  Upload,
-  X
+  Upload
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { useAuthDisplay } from "@/components/layout/auth-account";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { AccountArea, AuthModeBadge, useAuthDisplay } from "@/components/layout/auth-account";
-import { safeFetch } from "@/lib/api-client";
-import type { DashboardData } from "@/types/api";
+import { cn } from "@/lib/utils";
+import { ApiClientError, safeFetch } from "@/lib/api-client";
+import type { DashboardData, DocumentListItem } from "@/types/api";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: Home, active: true },
-  { label: "Documents", href: "/documents", icon: FileText },
-  { label: "Upload", href: "/upload", icon: Upload },
-  { label: "AI Chat", href: "/ai-chat", icon: MessageSquareText, ai: true },
-  { label: "Reports", href: "/reports", icon: BarChart3 },
-  { label: "Settings", href: "/settings", icon: Settings }
-];
+type UiDocument = {
+  id: string;
+  title: string;
+  type: string;
+  risk: string;
+  riskScore: number | null;
+  status: string;
+  summary: string;
+  updated: string;
+  createdAt: string;
+  href: string;
+};
 
-const pipelineSteps = [
-  { label: "Document uploaded", value: "NDA-042.pdf", state: "Complete" },
-  { label: "AI scanning", value: "216 clauses", state: "Live" },
-  { label: "Risk score", value: "74/100", state: "Medium" },
-  { label: "Clause detection", value: "12 flagged", state: "Review" },
-  { label: "Compliance check", value: "SOC2 ready", state: "Pass" },
-  { label: "Summary ready", value: "4 min read", state: "Ready" }
-];
-
-const fallbackStats = [
-  {
-    label: "Documents reviewed",
-    value: "24",
-    detail: "+8 this week",
-    icon: FileText,
-    tone: "text-primary",
-    visual: "sparkline"
-  },
-  {
-    label: "AI usage",
-    value: "68%",
-    detail: "1,240 credits left",
-    icon: Sparkles,
-    tone: "text-[#8B5CF6]",
-    visual: "ring"
-  },
-  {
-    label: "Risk overview",
-    value: "7",
-    detail: "3 require attention",
-    icon: ShieldAlert,
-    tone: "text-[#F59E0B]",
-    visual: "heatmap"
-  }
-];
-
-const fallbackDocuments = [
-  {
-    title: "Series A Subscription Agreement",
-    type: "Financing",
-    risk: "Medium",
-    status: "Ready",
-    time: "12 min ago",
-    badge: "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]"
-  },
-  {
-    title: "Master Services Agreement",
-    type: "Commercial",
-    risk: "Low",
-    status: "Reviewed",
-    time: "1 hr ago",
-    badge: "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]"
-  },
-  {
-    title: "Vendor Data Processing Addendum",
-    type: "Privacy",
-    risk: "High",
-    status: "Action needed",
-    time: "Yesterday",
-    badge: "border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FCA5A5]"
-  }
-];
-
-const activities = [
-  { title: "AI summary generated", detail: "Series A Subscription Agreement", time: "12m", icon: Sparkles },
-  { title: "Risk card updated", detail: "Indemnity clause marked medium risk", time: "28m", icon: ShieldAlert },
-  { title: "Report exported", detail: "MSA review PDF downloaded", time: "2h", icon: CheckCircle2 }
-];
-
-const fallbackReports = [
-  { id: "demo-report", title: "Vendor Data Processing Agreement", document: "Commercial / Privacy", status: "Export ready", risk: "Medium", time: "Just now", href: "/reports/demo-report" }
-];
+type UiActivity = {
+  id?: string;
+  title: string;
+  detail: string;
+  time: string;
+  tone: "sage" | "gold" | "teal" | "copper" | "red" | "steel";
+  createdAt?: string;
+};
 
 const quickActions = [
-  { label: "Upload Contract", icon: Upload, href: "/upload" },
-  { label: "Open AI Chat", icon: MessageSquareText, href: "/ai-chat" },
-  { label: "Export Report", icon: BarChart3, href: "/reports/demo-report" }
+  { label: "Upload contract", href: "/upload", icon: Upload, iconClass: "text-[#A7C957]" },
+  { label: "View documents", href: "/documents", icon: FolderOpen, iconClass: "text-[#6BAA9C]" },
+  { label: "Open reports", href: "/reports", icon: BarChart3, iconClass: "text-[#D9B76E]" },
+  { label: "Ask about a contract", href: "/ai-chat", icon: MessageSquareText, iconClass: "text-[#C47A4A]" }
 ];
 
-function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const authDisplay = useAuthDisplay();
+function formatDate(value: string, includeYear = false) {
+  const date = new Date(value);
 
-  return (
-    <aside className="flex h-full w-[280px] flex-col border-r border-border bg-card/95 px-6 py-6 shadow-[16px_0_48px_rgba(0,0,0,0.18)]">
-      <Link href="/" className="group flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary/10 shadow-[0_12px_36px_rgba(59,130,246,0.3),0_0_32px_rgba(139,92,246,0.14)] transition duration-150 ease-out group-hover:shadow-[0_14px_40px_rgba(59,130,246,0.38),0_0_34px_rgba(139,92,246,0.18)]">
-          <Image src="/LexAI-logo.png" alt="" width={44} height={44} className="h-11 w-11 object-cover" aria-hidden="true" priority />
-        </span>
-        <span>
-          <span className="block text-xl font-semibold leading-6 tracking-[-0.01em] text-foreground">LexAI</span>
-          <span className="block max-w-[180px] truncate text-xs font-medium leading-5 text-muted-foreground">{authDisplay.workspaceName}</span>
-        </span>
-      </Link>
-
-      <nav aria-label="Dashboard navigation" className="mt-10 flex flex-1 flex-col gap-2">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={item.active ? "page" : undefined}
-              className={[
-                "group flex h-12 items-center gap-3 rounded-lg px-4 text-sm font-medium transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                item.active
-                  ? "border border-primary/50 bg-primary/10 text-foreground shadow-[0_8px_24px_rgba(59,130,246,0.12)]"
-                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-              ].join(" ")}
-            >
-              <Icon
-                className={[
-                  "h-5 w-5 transition duration-150 ease-out group-hover:-translate-y-0.5",
-                  item.ai ? "text-[#8B5CF6]" : ""
-                ].join(" ")}
-                aria-hidden="true"
-              />
-              <span>{item.label}</span>
-              {item.ai ? <Sparkles className="ml-auto h-4 w-4 text-[#8B5CF6]" aria-hidden="true" /> : null}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <Card className="border-[#8B5CF6]/40 bg-[#8B5CF6]/10 shadow-[0_16px_48px_rgba(139,92,246,0.14)]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#8B5CF6]/20 text-[#C4B5FD]">
-              <Sparkles className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <span className="flex items-center gap-2 rounded-full border border-[#8B5CF6]/40 px-3 py-1 text-xs font-medium text-[#C4B5FD]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6] shadow-[0_0_16px_rgba(139,92,246,0.9)]" />
-              AI Ready
-            </span>
-          </div>
-          <p className="mt-4 text-sm font-semibold text-foreground">LexAI Intelligence</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Document-aware answers with clause references and risk context.
-          </p>
-        </CardContent>
-      </Card>
-    </aside>
-  );
-}
-
-function StatVisual({ type }: { type: string }) {
-  if (type === "ring") {
-    return (
-      <div className="relative h-16 w-16 rounded-full bg-[conic-gradient(#8B5CF6_0_68%,#2D3748_68%_100%)]">
-        <div className="absolute inset-2 rounded-full bg-card" />
-        <span className="absolute inset-0 grid place-items-center text-xs font-semibold text-[#C4B5FD]">68%</span>
-      </div>
-    );
+  if (Number.isNaN(date.getTime())) {
+    return "Pending";
   }
 
-  if (type === "heatmap") {
-    return (
-      <div className="grid w-20 grid-cols-4 gap-1">
-        {["bg-[#22C55E]/60", "bg-[#F59E0B]/70", "bg-[#2D3748]", "bg-[#EF4444]/70", "bg-[#F59E0B]/60", "bg-[#22C55E]/50", "bg-[#EF4444]/60", "bg-[#2D3748]"].map((tone, index) => (
-          <span key={`${tone}-${index}`} className={`h-3 rounded-sm ${tone}`} />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-16 w-24 items-end gap-1">
-      {[24, 36, 28, 44, 40, 56, 64].map((height, index) => (
-        <span
-          key={height + index}
-          className="w-2 rounded-full bg-primary/70"
-          style={{ height }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: includeYear ? "numeric" : undefined
+  }).format(date);
 }
 
 function titleCase(value: string) {
@@ -231,7 +74,7 @@ function titleCase(value: string) {
 
 function riskLabel(score: number | null) {
   if (score === null) {
-    return "Unscored";
+    return "Pending";
   }
 
   if (score >= 80) {
@@ -245,56 +88,183 @@ function riskLabel(score: number | null) {
   return "Low";
 }
 
-function riskBadge(risk: string) {
+function riskTone(risk: string) {
   if (risk === "High") {
-    return "border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FCA5A5]";
+    return "border-[#D66A5E]/45 bg-[#D66A5E]/10 text-[#E89A92]";
   }
 
   if (risk === "Low") {
-    return "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]";
+    return "border-[#A7C957]/45 bg-[#A7C957]/10 text-[#D7E8A5]";
   }
 
-  return "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#FCD34D]";
+  return "border-[#C47A4A]/45 bg-[#C47A4A]/10 text-[#E4AD89]";
 }
 
-function dashboardItemKey(
-  item: {
-    id?: string | null;
-    title?: string | null;
-    label?: string | null;
-    createdAt?: string | null;
-    time?: string | null;
-  },
-  index: number
-) {
-  return item.id ?? `${item.title ?? item.label}-${item.createdAt ?? item.time ?? index}-${index}`;
+function riskTextTone(risk: string) {
+  if (risk === "High") {
+    return "text-[#E89A92]";
+  }
+
+  if (risk === "Low") {
+    return "text-[#A7C957]";
+  }
+
+  return "text-[#D9B76E]";
+}
+
+function statusTone(status: string) {
+  const normalized = status.toLowerCase();
+
+  if (normalized.includes("reviewed") || normalized.includes("complete")) {
+    return "text-[#A7C957]";
+  }
+
+  if (normalized.includes("report") || normalized.includes("ready")) {
+    return "text-[#D9B76E]";
+  }
+
+  if (normalized.includes("action") || normalized.includes("failed")) {
+    return "text-[#D66A5E]";
+  }
+
+  if (normalized.includes("pending") || normalized.includes("uploaded")) {
+    return "text-[#6BAA9C]";
+  }
+
+  return "text-[#A2AAA5]";
+}
+
+function activityTone(tone: UiActivity["tone"]) {
+  const tones = {
+    sage: "border-[#A7C957] shadow-[0_0_18px_rgba(167,201,87,0.18)]",
+    gold: "border-[#D9B76E] shadow-[0_0_18px_rgba(217,183,110,0.16)]",
+    teal: "border-[#6BAA9C] shadow-[0_0_18px_rgba(107,170,156,0.15)]",
+    copper: "border-[#C47A4A] shadow-[0_0_18px_rgba(196,122,74,0.15)]",
+    red: "border-[#D66A5E] shadow-[0_0_18px_rgba(214,106,94,0.15)]",
+    steel: "border-[#7E8A86] shadow-[0_0_18px_rgba(126,138,134,0.12)]"
+  };
+
+  return tones[tone];
+}
+
+function activityToneForAction(action: string, index: number): UiActivity["tone"] {
+  const normalized = action.toLowerCase();
+
+  if (normalized.includes("upload")) return "teal";
+  if (normalized.includes("analysis") || normalized.includes("complete")) return "sage";
+  if (normalized.includes("report")) return "gold";
+  if (normalized.includes("risk") || normalized.includes("warning")) return "copper";
+  if (normalized.includes("delete") || normalized.includes("fail")) return "red";
+  return index % 2 === 0 ? "steel" : "gold";
+}
+
+function fileMeta(document: DocumentListItem) {
+  const firstFile = document.files?.[0];
+  const extension = firstFile?.extension?.toUpperCase();
+  const size = firstFile ? `${Math.max(1, Math.round(firstFile.sizeBytes / 1024))} KB` : null;
+
+  return [extension, size].filter(Boolean).join(" / ") || document.description || "Legal document";
+}
+
+function toUiDocument(document: DocumentListItem): UiDocument {
+  const risk = riskLabel(document.riskScore);
+
+  return {
+    id: document.id,
+    title: document.title,
+    type: fileMeta(document),
+    risk,
+    riskScore: document.riskScore,
+    status: titleCase(document.status),
+    summary: document.summary ?? "Review status is ready for clause and risk inspection.",
+    updated: formatDate(document.updatedAt || document.createdAt),
+    createdAt: document.createdAt,
+    href: `/contracts/demo-analysis?documentId=${document.id}`
+  };
+}
+
+function itemKey(item: { id?: string | null; title?: string | null; createdAt?: string | null }, index: number) {
+  return item.id ?? `${item.title ?? "item"}-${item.createdAt ?? "fallback"}-${index}`;
+}
+
+function averageRisk(documents: UiDocument[]) {
+  const scored = documents.map((document) => document.riskScore).filter((score): score is number => typeof score === "number");
+
+  if (!scored.length) {
+    return 0;
+  }
+
+  return Math.round(scored.reduce((sum, score) => sum + score, 0) / scored.length);
+}
+
+function LoginRequiredModal() {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#050706]/80 px-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="dashboard-login-title">
+      <div className="w-full max-w-md rounded-lg border border-[#2C3632] bg-[#121817] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-md border border-[#A7C957]/30 bg-[#A7C957]/10 text-[#A7C957]">
+          <LogIn className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <h1 id="dashboard-login-title" className="mt-5 text-2xl font-semibold text-[#F5F5EF]">
+          Log in to open your dashboard
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-[#A2AAA5]">
+          Your dashboard is tied to your workspace, documents, reports, and activity. Please log in first.
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button asChild className="bg-[#A7C957] text-[#0B0F0E] hover:bg-[#B8D86C]">
+            <Link href="/login">
+              Log in
+              <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="border-[#2C3632] bg-[#0B0F0E]/50 text-[#F5F5EF] hover:border-[#D9B76E]/55 hover:bg-[#1B2421]">
+            <Link href="/signup">Create account</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFallback, setIsFallback] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [tokenRejected, setTokenRejected] = useState(false);
   const authDisplay = useAuthDisplay();
   const shouldReduceMotion = useReducedMotion();
-  const entrance = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 };
+  const hidden = shouldReduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.99 };
+  const show = { opacity: 1, y: 0, scale: 1 };
 
   useEffect(() => {
+    if (!authDisplay.hasToken) {
+      return;
+    }
+
     let isMounted = true;
 
-    safeFetch<DashboardData>("/demo/dashboard")
+    safeFetch<DashboardData>("/dashboard")
       .then((data) => {
         if (!isMounted) {
           return;
         }
 
         setDashboard(data);
-        setIsFallback(false);
+        setLoadError(null);
+        setTokenRejected(false);
       })
-      .catch(() => {
-        if (isMounted) {
-          setIsFallback(true);
+      .catch((error) => {
+        if (!isMounted) {
+          return;
         }
+
+        if (error instanceof ApiClientError && error.status === 401) {
+          setDashboard(null);
+          setTokenRejected(true);
+          return;
+        }
+
+        setLoadError(error instanceof Error ? error.message : "Unable to load dashboard.");
       })
       .finally(() => {
         if (isMounted) {
@@ -305,32 +275,16 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authDisplay.hasToken]);
 
-  const stats = dashboard
-    ? [
-        { label: "Documents reviewed", value: String(dashboard.counts.documents), detail: `${dashboard.counts.analyzedDocuments} analyzed`, icon: FileText, tone: "text-primary", visual: "sparkline" },
-        { label: "AI usage", value: "Read-only", detail: dashboard.workspace.name, icon: Sparkles, tone: "text-[#8B5CF6]", visual: "ring" },
-        { label: "Risk overview", value: String(dashboard.counts.highRiskFindings), detail: "High-risk findings", icon: ShieldAlert, tone: "text-[#F59E0B]", visual: "heatmap" }
-      ]
-    : fallbackStats;
+  const authRequired = !authDisplay.hasToken || tokenRejected;
+  const dashboardLoading = authDisplay.hasToken && isLoading && !loadError && !dashboard;
+
   const documents = useMemo(
-    () =>
-      dashboard?.recentDocuments.length
-        ? dashboard.recentDocuments.map((document) => ({
-            id: document.id,
-            title: document.title,
-            type: document.description ?? "Legal document",
-            risk: riskLabel(document.riskScore),
-            status: titleCase(document.status),
-            time: formatDate(document.createdAt),
-            createdAt: document.createdAt,
-            badge: riskBadge(riskLabel(document.riskScore)),
-            href: `/contracts/demo-analysis?documentId=${document.id}`
-          }))
-        : fallbackDocuments.map((document) => ({ ...document, href: "/contracts/demo-analysis" })),
+    () => (dashboard?.recentDocuments.length ? dashboard.recentDocuments.map(toUiDocument) : []),
     [dashboard]
   );
+
   const reports = useMemo(
     () =>
       dashboard?.recentReports.length
@@ -338,365 +292,409 @@ export default function DashboardPage() {
             id: report.id,
             title: report.title,
             document: report.document?.title ?? "Legal report",
-            status: titleCase(report.status),
             risk: riskLabel(report.riskScoreSnapshot ?? report.document?.riskScore ?? null),
-            time: formatDate(report.createdAt),
+            status: titleCase(report.status),
+            updated: formatDate(report.updatedAt || report.createdAt),
             href: `/reports/demo-report?reportId=${report.id}`
           }))
-        : fallbackReports,
+        : [],
     [dashboard]
   );
-  const auditActivities = dashboard?.recentAuditLogs.length
-    ? dashboard.recentAuditLogs.slice(0, 5).map((activity) => ({
+
+  const activities: UiActivity[] = dashboard?.recentAuditLogs.length
+    ? dashboard.recentAuditLogs.slice(0, 5).map((activity, index) => ({
         id: activity.id,
         title: titleCase(activity.action),
         detail: `${titleCase(activity.entityType)} ${activity.actorUser?.name ?? activity.actorUser?.email ?? "system"}`,
         time: formatDate(activity.createdAt),
-        createdAt: activity.createdAt,
-        icon: CheckCircle2
+        tone: activityToneForAction(activity.action, index),
+        createdAt: activity.createdAt
       }))
-    : activities;
-  const userName = dashboard?.currentUser.name ?? "Apex Legal";
-  const userEmail = dashboard?.currentUser.email ?? "apex@lexai.local";
-  const workspaceName = dashboard?.workspace.name ?? "LexAI Intelligence";
-  const displayUserName = authDisplay.hasStoredAuth ? authDisplay.userName : userName;
-  const displayUserEmail = authDisplay.hasStoredAuth ? authDisplay.userEmail : userEmail;
-  const displayWorkspaceName = authDisplay.hasStoredAuth ? authDisplay.workspaceName : workspaceName;
+    : [];
+
+  const activeDocument = documents[0];
+  const highRiskCount = dashboard?.counts.highRiskFindings ?? documents.filter((document) => document.risk === "High").length;
+  const analyzedCount = dashboard?.counts.analyzedDocuments ?? documents.filter((document) => document.status !== "Pending").length;
+  const documentCount = dashboard?.counts.documents ?? documents.length;
+  const lastActivity = activities[0]?.time ?? activeDocument?.updated ?? "Pending";
+  const modeLabel = "Signed in";
+  const firstName = (dashboard?.currentUser.name ?? authDisplay.userName).split(" ")[0] || "there";
+  const workspaceName = dashboard?.workspace.name ?? authDisplay.workspaceName;
+  const reviewedPercent = documentCount > 0 ? Math.round((analyzedCount / documentCount) * 100) : 0;
+  const avgRisk = averageRisk(documents);
+
+  const stats = [
+    { label: "documents reviewed", value: String(documentCount), detail: `${analyzedCount} analyzed` },
+    { label: "reports ready", value: String(reports.length), detail: reports[0]?.updated ?? "Pending" },
+    { label: "high-risk findings", value: String(highRiskCount), detail: highRiskCount > 0 ? "Review before signing" : "No urgent findings" },
+    { label: "last activity", value: lastActivity, detail: dashboardLoading ? "Loading workspace" : loadError ? "Backend unavailable" : workspaceName }
+  ];
+
+  const riskRadar = [
+    { label: "Liability", value: Math.min(100, Math.max(avgRisk + highRiskCount * 4, 42)), color: "bg-[#D66A5E]", text: "text-[#E89A92]" },
+    { label: "Termination", value: Math.min(100, Math.max(avgRisk - 6, 34)), color: "bg-[#D9B76E]", text: "text-[#F0D89B]" },
+    { label: "Privacy", value: Math.min(100, Math.max(avgRisk + 8, 38)), color: "bg-[#6BAA9C]", text: "text-[#9BCBC2]" },
+    { label: "Payment", value: Math.min(100, Math.max(avgRisk - 14, 26)), color: "bg-[#7E8A86]", text: "text-[#A2AAA5]" },
+    { label: "Security", value: Math.min(100, Math.max(avgRisk + 2, 32)), color: "bg-[#C47A4A]", text: "text-[#E4AD89]" }
+  ];
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_24%_8%,rgba(59,130,246,0.16),transparent_28rem),radial-gradient(circle_at_82%_18%,rgba(139,92,246,0.12),transparent_26rem),linear-gradient(rgba(248,250,252,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(248,250,252,0.025)_1px,transparent_1px)] bg-[size:auto,auto,64px_64px,64px_64px]" />
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">
-        <Sidebar />
-      </div>
+    <>
+      {authRequired ? <LoginRequiredModal /> : null}
+      {!authRequired ? null : <div aria-hidden="true" className="fixed inset-0 bg-[#050706]" />}
+      {!authRequired ? (
+    <DashboardShell contextMode="auth">
+      <div className="mx-auto max-w-[1440px]">
+        <motion.section
+          initial={hidden}
+          animate={show}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-lg border border-[#2C3632] bg-[#121817]/90 shadow-[0_26px_80px_rgba(0,0,0,0.34)]"
+        >
+          <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(rgba(245,245,239,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(245,245,239,0.026)_1px,transparent_1px)] bg-[size:56px_56px]" />
+          <div aria-hidden="true" className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_70%_18%,rgba(167,201,87,0.12),transparent_26rem),radial-gradient(circle_at_92%_70%,rgba(217,183,110,0.1),transparent_24rem)]" />
+          <div aria-hidden="true" className="absolute -top-24 right-10 h-80 w-56 rotate-6 rounded-md border border-[#A2AAA5]/10 bg-[#1B2421]/20" />
+          <div aria-hidden="true" className={cn("absolute -inset-y-24 left-[-12%] w-px rotate-12 bg-gradient-to-b from-transparent via-[#D9B76E]/35 to-transparent shadow-[0_0_32px_rgba(167,201,87,0.14)]", shouldReduceMotion ? "" : "motion-safe:animate-[lexai-bg-scan_10s_ease-in-out_infinite]")} />
 
-      <AnimatePresence>
-        {isSidebarOpen ? (
-          <motion.div
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div
-              className="h-full"
-              initial={shouldReduceMotion ? { x: 0 } : { x: -280 }}
-              animate={{ x: 0 }}
-              exit={shouldReduceMotion ? { x: 0 } : { x: -280 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-            >
-              <div className="absolute left-[232px] top-6 z-10">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label="Close navigation"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="h-10 w-10 px-0"
-                >
-                  <X className="h-5 w-5" aria-hidden="true" />
+          <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:p-10">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-[#A7C957]/35 bg-[#A7C957]/10 px-3 py-1 text-xs font-medium text-[#D7E8A5]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#A7C957] shadow-[0_0_14px_rgba(167,201,87,0.55)]" />
+                  {modeLabel}
+                </span>
+                <span className="inline-flex min-h-7 items-center rounded-full border border-[#D9B76E]/30 bg-[#D9B76E]/10 px-3 py-1 text-xs font-medium text-[#F0D89B]">
+                  {loadError ? loadError : dashboardLoading ? "Loading workspace" : "Workspace live"}
+                </span>
+              </div>
+              <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-[#A7C957]">
+                {`Welcome back, ${firstName}`}
+              </p>
+              <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-tight text-[#F5F5EF] sm:text-5xl lg:text-6xl">
+                Review command center
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-[#A2AAA5] sm:text-lg">
+                Track uploaded contracts, review risks, and open reports from one workspace.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button asChild className="bg-[#A7C957] text-[#0B0F0E] shadow-[0_14px_34px_rgba(167,201,87,0.18)] hover:bg-[#B8D86C]">
+                  <Link href={activeDocument?.href ?? "/upload"}>
+                    Open analysis
+                    <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="border-[#2C3632] bg-[#0B0F0E]/50 text-[#F5F5EF] hover:border-[#D9B76E]/55 hover:bg-[#1B2421]">
+                  <Link href="/upload">
+                    <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Upload contract
+                  </Link>
                 </Button>
               </div>
-              <Sidebar onNavigate={() => setIsSidebarOpen(false)} />
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            </div>
 
-      <div className="lg:pl-[280px]">
-        <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b border-border bg-background/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label="Open navigation"
-            onClick={() => setIsSidebarOpen(true)}
-            className="h-10 w-10 px-0 lg:hidden"
-          >
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          </Button>
-
-          <div className="group relative hidden flex-1 md:block">
-            <label htmlFor="dashboard-search" className="sr-only">
-              Search contracts, clauses, companies
-            </label>
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground transition duration-150 ease-out group-focus-within:text-primary" aria-hidden="true" />
-            <Input
-              id="dashboard-search"
-              type="search"
-              placeholder="Search contracts, clauses, companies..."
-              className="max-w-[560px] pl-12 pr-16 focus-visible:shadow-[0_0_0_4px_rgba(59,130,246,0.12)]"
-            />
-            <span className="pointer-events-none absolute left-[500px] top-1/2 hidden h-7 -translate-y-1/2 items-center rounded-md border border-border px-2 text-xs font-medium text-muted-foreground lg:flex">
-              Ctrl K
-            </span>
+            <div className="self-end rounded-lg border border-[#2C3632] bg-[#0B0F0E]/70 p-5">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A2AAA5]">workspace health</span>
+                <Radio className="h-4 w-4 text-[#A7C957]" aria-hidden="true" />
+              </div>
+              <div className="mt-5 flex items-end gap-3">
+                <span className="text-4xl font-semibold leading-none text-[#F5F5EF]">{reviewedPercent}%</span>
+                <span className="pb-1 text-sm text-[#A2AAA5]">review readiness</span>
+              </div>
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#2C3632]">
+                <motion.span
+                  initial={shouldReduceMotion ? { width: `${reviewedPercent}%` } : { width: 0 }}
+                  animate={{ width: `${reviewedPercent}%` }}
+                  transition={{ duration: 0.55, ease: "easeOut" }}
+                  className="block h-full rounded-full bg-[#A7C957]"
+                />
+              </div>
+              <p className="mt-4 text-sm leading-6 text-[#A2AAA5]">{workspaceName}</p>
+            </div>
           </div>
+        </motion.section>
 
-          <div className="ml-auto flex items-center gap-2">
-            <AuthModeBadge contextMode={dashboard?.contextMode} />
-            <Button asChild size="sm" className="hidden shadow-[0_8px_24px_rgba(59,130,246,0.28)] sm:inline-flex">
-              <Link href="/upload">
-                <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                Upload Contract
-              </Link>
-            </Button>
-            <Button size="sm" variant="ghost" aria-label="View notifications" className="h-10 w-10 px-0">
-              <Bell className="h-5 w-5" aria-hidden="true" />
-            </Button>
-            <Button size="sm" variant="ghost" aria-label="Dark theme enabled" className="h-10 w-10 px-0">
-              <Moon className="h-5 w-5" aria-hidden="true" />
-            </Button>
-            <AccountArea />
-          </div>
-        </header>
-
-        <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-[1440px]">
-            <motion.section
-              initial={entrance}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(440px,0.85fr)]"
+        <section aria-label="Review status" className="mt-6 grid overflow-hidden rounded-lg border-y border-[#2C3632] bg-[#0B0F0E]/50 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, index) => (
+            <motion.div
+              key={`${stat.label}-${index}`}
+              initial={hidden}
+              animate={show}
+              transition={{ duration: 0.28, delay: shouldReduceMotion ? 0 : index * 0.04, ease: "easeOut" }}
+              className="border-b border-[#2C3632] p-5 last:border-b-0 sm:odd:border-r lg:border-b-0 lg:border-r lg:last:border-r-0"
             >
-              <Card className="overflow-hidden border-primary/35 bg-card/95 shadow-[0_16px_48px_rgba(0,0,0,0.25)]">
-                <CardContent className="p-6 sm:p-8 lg:p-10">
-                  <div className="inline-flex h-7 items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD]">
-                    <Sparkles className="h-4 w-4" aria-hidden="true" />
-                    {isFallback ? "Using frontend demo data" : isLoading ? "Loading backend workspace" : displayWorkspaceName}
-                  </div>
-                  <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-tight text-foreground sm:text-5xl">
-                    Welcome back, {displayUserName.split(" ")[0] ?? "there"}.
-                  </h1>
-                  <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                    {displayUserEmail} can review recent documents, report snapshots, and activity from the LexAI demo workspace.
-                  </p>
-                  <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <motion.div
-                      animate={shouldReduceMotion ? undefined : { boxShadow: ["0 0 0 rgba(59,130,246,0)", "0 0 36px rgba(59,130,246,0.24)", "0 0 0 rgba(59,130,246,0)"] }}
-                      transition={{ duration: 2.8, repeat: Infinity, ease: "easeOut" }}
-                    >
-                      <Button asChild size="lg" className="w-full sm:w-auto">
-                        <Link href="/upload">
-                          <Upload className="mr-2 h-5 w-5" aria-hidden="true" />
-                          Upload Contract
-                        </Link>
-                      </Button>
-                    </motion.div>
-                    <span className="text-sm leading-6 text-muted-foreground">Powered by LexAI Intelligence</span>
-                  </div>
-                  <div className="mt-5 flex flex-wrap gap-x-3 gap-y-2 text-sm leading-6 text-muted-foreground">
-                    <span>30s average analysis</span>
-                    <span aria-hidden="true">/</span>
-                    <span>12 risk categories</span>
-                    <span aria-hidden="true">/</span>
-                    <span>Export-ready reports</span>
-                  </div>
-                  <div className="mt-6 rounded-2xl border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 p-5 shadow-[0_12px_36px_rgba(139,92,246,0.12)]">
-                    <div className="flex items-start gap-4">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#8B5CF6]/20 text-[#C4B5FD]">
-                        <Sparkles className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-sm font-semibold leading-6 text-foreground">Sample AI Insight</p>
-                          <span className="w-fit rounded-full border border-[#F59E0B]/40 bg-[#F59E0B]/10 px-3 py-1 text-xs font-medium text-[#FCD34D]">
-                            Medium Risk
-                          </span>
-                        </div>
-                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                          {dashboard?.recentDocuments[0]?.summary ?? "Clause 7 contains uncapped liability. Consider adding a liability cap before signing."}
-                        </p>
-                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-muted-foreground">
-                          <span className="rounded-full border border-border px-3 py-1">12 clauses checked</span>
-                          <span className="rounded-full border border-border px-3 py-1">Export ready</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <p className="text-3xl font-semibold leading-none text-[#F5F5EF]">{stat.value}</p>
+              <p className="mt-2 text-sm font-medium text-[#F5F5EF]">{stat.label}</p>
+              <p className="mt-1 truncate text-xs text-[#A2AAA5]">{stat.detail}</p>
+            </motion.div>
+          ))}
+        </section>
 
-              <Card className="border-[#8B5CF6]/35 bg-card/95 shadow-[0_16px_48px_rgba(139,92,246,0.12)]">
-                <CardHeader className="p-6">
-                  <CardTitle className="flex items-center justify-between text-xl">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-[#C4B5FD]" aria-hidden="true" />
-                      Live AI preview
+        <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid gap-6">
+            <motion.section
+              initial={hidden}
+              animate={show}
+              transition={{ duration: 0.35, delay: shouldReduceMotion ? 0 : 0.08, ease: "easeOut" }}
+              className="relative overflow-hidden rounded-lg border border-[#2C3632] bg-[#1B2421]/85 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-7"
+            >
+              <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(rgba(245,245,239,0.04)_1px,transparent_1px)] bg-[length:100%_38px]" />
+              <div aria-hidden="true" className={cn("absolute inset-x-[-20%] top-0 h-px bg-gradient-to-r from-transparent via-[#D9B76E]/55 to-transparent", shouldReduceMotion ? "" : "motion-safe:animate-[lexai-panel-scan_8s_ease-in-out_infinite]")} />
+              <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_180px] lg:items-center">
+                <div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#A7C957]">Active review</p>
+                    <span className={cn("inline-flex min-h-7 items-center rounded-full border px-3 py-1 text-xs font-medium", riskTone(activeDocument?.risk ?? "Pending"))}>
+                      {activeDocument?.risk ?? "Pending"} risk
                     </span>
-                    <span className="flex items-center gap-2 rounded-full border border-[#8B5CF6]/40 px-3 py-1 text-xs font-medium text-[#C4B5FD]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
-                      Live
+                  </div>
+                  <h2 className="mt-4 text-2xl font-semibold leading-tight text-[#F5F5EF] sm:text-3xl">
+                    {activeDocument?.title ?? "No active review yet."}
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-[#A2AAA5]">
+                    {activeDocument?.summary ?? "Upload a contract to start your first review."}
+                  </p>
+                  <div className="mt-5 grid gap-3 text-sm text-[#A2AAA5] sm:grid-cols-3">
+                    <span className="rounded-md border border-[#2C3632] bg-[#0B0F0E]/40 px-3 py-2">{activeDocument?.status ?? "Waiting for upload"}</span>
+                    <span className="rounded-md border border-[#2C3632] bg-[#0B0F0E]/40 px-3 py-2">{activeDocument?.type ?? "Contract file"}</span>
+                    <span className="rounded-md border border-[#2C3632] bg-[#0B0F0E]/40 px-3 py-2">{activeDocument?.updated ?? "No activity"}</span>
+                  </div>
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <Button asChild className="bg-[#A7C957] text-[#0B0F0E] hover:bg-[#B8D86C]">
+                      <Link href={activeDocument?.href ?? "/upload"}>
+                        Open analysis
+                        <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                      </Link>
+                    </Button>
+                    <Button asChild variant="ghost" className="text-[#A2AAA5] hover:bg-[#121817] hover:text-[#F5F5EF]">
+                      <Link href="/upload">Upload contract</Link>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid justify-start lg:justify-center">
+                  <div
+                    className="grid h-36 w-36 place-items-center rounded-full border border-[#D9B76E]/45 text-center shadow-[0_0_42px_rgba(217,183,110,0.12)]"
+                    style={{
+                      background: `conic-gradient(#D9B76E 0 ${activeDocument?.riskScore ?? 0}%, #2C3632 ${activeDocument?.riskScore ?? 0}% 100%)`
+                    }}
+                    aria-label={`Risk score ${activeDocument?.riskScore ?? 0}`}
+                  >
+                    <span className="grid h-28 w-28 place-items-center rounded-full bg-[#121817]">
+                      <span>
+                        <span className={cn("block text-3xl font-semibold", riskTextTone(activeDocument?.risk ?? "Pending"))}>
+                          {activeDocument?.riskScore ?? "--"}
+                        </span>
+                        <span className="block text-xs uppercase tracking-[0.16em] text-[#A2AAA5]">risk score</span>
+                      </span>
                     </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 p-6 pt-0">
-                  {pipelineSteps.map((step, index) => (
-                    <div key={step.label} className="relative flex items-center gap-4 rounded-2xl border border-border bg-background p-4">
-                      {index < pipelineSteps.length - 1 ? <span className="absolute left-[31px] top-12 h-5 w-px bg-border" aria-hidden="true" /> : null}
-                      <span className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 text-xs font-semibold text-primary">
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium leading-6 text-foreground">{step.label}</span>
-                        <span className="block text-sm leading-6 text-muted-foreground">{step.value}</span>
-                      </span>
-                      <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">{step.state}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                  </div>
+                </div>
+              </div>
             </motion.section>
 
-            <section aria-labelledby="dashboard-stats" className="mt-8">
-              <h2 id="dashboard-stats" className="sr-only">
-                Dashboard statistics
-              </h2>
-              <div className="grid gap-6 md:grid-cols-3">
-                {stats.map((stat, index) => {
-                  const Icon = stat.icon;
-
-                  return (
+            <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
+              <motion.div initial={hidden} animate={show} transition={{ duration: 0.3, delay: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }} className="rounded-lg border border-[#2C3632] bg-[#121817]/80">
+                <div className="flex flex-col gap-3 border-b border-[#2C3632] p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[#F5F5EF]">Recent documents</h2>
+                    <p className="mt-1 text-sm text-[#A2AAA5]">Uploaded files and review status.</p>
+                  </div>
+                  <Button asChild variant="ghost" size="sm" className="w-fit text-[#A2AAA5] hover:bg-[#1B2421] hover:text-[#F5F5EF]">
+                    <Link href="/documents">View all</Link>
+                  </Button>
+                </div>
+                <div className="hidden grid-cols-[minmax(0,1fr)_120px_96px_92px_72px] gap-4 border-b border-[#2C3632] px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#A2AAA5] md:grid">
+                  <span>Document</span>
+                  <span>Status</span>
+                  <span>Risk</span>
+                  <span>Updated</span>
+                  <span className="text-right">Action</span>
+                </div>
+                <div>
+                  {documents.length ? documents.map((document, index) => (
                     <motion.div
-                      key={stat.label}
-                      initial={entrance}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: shouldReduceMotion ? 0 : index * 0.05, ease: "easeOut" }}
+                      key={itemKey(document, index)}
+                      initial={hidden}
+                      animate={show}
+                      transition={{ duration: 0.25, delay: shouldReduceMotion ? 0 : index * 0.035, ease: "easeOut" }}
                     >
-                      <Card className="h-full hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_16px_48px_rgba(0,0,0,0.25)]">
-                        <CardHeader className="flex-row items-start justify-between space-y-0 p-6">
-                          <span>
-                            <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
-                            <span className="mt-3 block text-[32px] font-bold leading-10 text-foreground">{stat.value}</span>
-                          </span>
-                          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                            <Icon className={["h-5 w-5", stat.tone].join(" ")} aria-hidden="true" />
-                          </span>
-                        </CardHeader>
-                        <CardContent className="flex items-end justify-between gap-4 p-6 pt-0">
-                          <p className="text-sm leading-6 text-muted-foreground">{stat.detail}</p>
-                          <StatVisual type={stat.visual} />
-                        </CardContent>
-                      </Card>
+                      <Link
+                        href={document.href}
+                        className="grid gap-3 border-b border-[#2C3632] p-5 transition duration-150 ease-out last:border-b-0 hover:bg-[#1B2421]/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A7C957] md:grid-cols-[minmax(0,1fr)_120px_96px_92px_72px] md:items-center"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-[#F5F5EF]">{document.title}</span>
+                          <span className="mt-1 block truncate text-xs text-[#A2AAA5]">{document.type}</span>
+                        </span>
+                        <span className={cn("text-sm", statusTone(document.status))}>{document.status}</span>
+                        <span className={cn("w-fit rounded-full border px-2.5 py-1 text-xs font-medium", riskTone(document.risk))}>{document.risk}</span>
+                        <span className="text-sm text-[#A2AAA5]">{document.updated}</span>
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-[#A7C957] md:justify-end">
+                          Open
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        </span>
+                      </Link>
                     </motion.div>
-                  );
-                })}
+                  )) : (
+                    <div className="p-5 text-sm leading-6 text-[#A2AAA5]">
+                      No documents yet. Upload a contract to start your first dashboard review.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              <motion.aside initial={hidden} animate={show} transition={{ duration: 0.3, delay: shouldReduceMotion ? 0 : 0.16, ease: "easeOut" }} className="rounded-lg border border-[#2C3632] bg-[#121817]/80 p-5">
+                <h2 className="text-xl font-semibold text-[#F5F5EF]">Risk radar</h2>
+                <p className="mt-1 text-sm text-[#A2AAA5]">Category pressure across recent reviews.</p>
+                <div className="mt-6 space-y-4">
+                  {riskRadar.map((category, index) => (
+                    <div key={category.label}>
+                      <div className="flex items-center justify-between gap-4 text-sm">
+                        <span className="text-[#F5F5EF]">{category.label}</span>
+                        <span className={category.text}>{category.value}</span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#2C3632]">
+                        <motion.span
+                          initial={shouldReduceMotion ? { width: `${category.value}%` } : { width: 0 }}
+                          whileInView={{ width: `${category.value}%` }}
+                          viewport={{ once: true, margin: "-40px" }}
+                          transition={{ duration: 0.45, delay: shouldReduceMotion ? 0 : index * 0.04, ease: "easeOut" }}
+                          className={cn("block h-full rounded-full", category.color)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.aside>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <motion.div initial={hidden} animate={show} transition={{ duration: 0.3, delay: shouldReduceMotion ? 0 : 0.18, ease: "easeOut" }} className="rounded-lg border border-[#2C3632] bg-[#121817]/80 p-5">
+                <h2 className="text-xl font-semibold text-[#F5F5EF]">Review activity</h2>
+                <div className="relative mt-6 space-y-5">
+                  <motion.span
+                    aria-hidden="true"
+                    initial={shouldReduceMotion ? { scaleY: 1 } : { scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className="absolute left-3 top-3 h-[calc(100%-24px)] w-px origin-top bg-[#2C3632]"
+                  />
+                  {activities.map((activity, index) => (
+                    <motion.div
+                      key={activity.id ?? `${activity.title}-${activity.createdAt ?? activity.time}-${index}`}
+                      initial={hidden}
+                      animate={show}
+                      transition={{ duration: 0.25, delay: shouldReduceMotion ? 0 : index * 0.04, ease: "easeOut" }}
+                      className="relative flex gap-4"
+                    >
+                      <span className={cn("relative z-10 mt-1 h-6 w-6 rounded-full border bg-[#121817]", activityTone(activity.tone))} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-sm font-medium text-[#F5F5EF]">{activity.title}</span>
+                          <span className="text-xs text-[#A2AAA5]">{activity.time}</span>
+                        </span>
+                        <span className="mt-1 block text-sm text-[#A2AAA5]">{activity.detail}</span>
+                      </span>
+                    </motion.div>
+                  ))}
+                  {!activities.length ? (
+                    <div className="rounded-md border border-[#2C3632] bg-[#0B0F0E]/40 p-4 text-sm leading-6 text-[#A2AAA5]">
+                      Workspace activity will appear here after uploads, analysis runs, and reports.
+                    </div>
+                  ) : null}
+                </div>
+              </motion.div>
+
+              <motion.div initial={hidden} animate={show} transition={{ duration: 0.3, delay: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }} className="rounded-lg border border-[#2C3632] bg-[#121817]/80 p-5">
+                <h2 className="text-xl font-semibold text-[#F5F5EF]">Quick actions</h2>
+                <div className="mt-5 grid gap-3">
+                  {quickActions.map((action) => {
+                    const Icon = action.icon;
+
+                    return (
+                      <Link
+                        key={action.href}
+                        href={action.href}
+                        className="group flex min-h-14 items-center justify-between rounded-md border border-[#2C3632] bg-[#0B0F0E]/45 px-4 py-3 text-sm font-medium text-[#F5F5EF] transition duration-150 ease-out hover:-translate-y-0.5 hover:border-[#A7C957]/50 hover:bg-[#1B2421] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A7C957]"
+                      >
+                        <span className="flex items-center gap-3">
+                          <Icon className={cn("h-4 w-4", action.iconClass)} aria-hidden="true" />
+                          {action.label}
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-[#A2AAA5] transition group-hover:text-[#A7C957]" aria-hidden="true" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </section>
+          </div>
+
+          <motion.aside initial={hidden} animate={show} transition={{ duration: 0.35, delay: shouldReduceMotion ? 0 : 0.14, ease: "easeOut" }} className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+            <section className="rounded-lg border border-[#2C3632] bg-[#121817]/80 p-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-md border border-[#A7C957]/30 bg-[#A7C957]/10 text-[#A7C957]">
+                  <FileSearch className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-[#F5F5EF]">Intelligence rail</h2>
+                  <p className="text-sm text-[#A2AAA5]">{workspaceName}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 divide-y divide-[#2C3632] border-y border-[#2C3632]">
+                {[
+                  ["Workspace mode", modeLabel],
+                  ["Current workspace", workspaceName],
+                  ["Review readiness", `${reviewedPercent}%`],
+                  ["Analysis provider", "Mock analysis provider active"]
+                ].map(([label, value], index) => (
+                  <div key={`${label}-${index}`} className="grid gap-1 py-4">
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#A2AAA5]">{label}</span>
+                    <span className="text-sm font-medium text-[#F5F5EF]">{value}</span>
+                  </div>
+                ))}
               </div>
             </section>
 
-            <section className="mt-8 grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-              <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 p-6">
-                  <div>
-                    <CardTitle className="text-xl">Recent Documents</CardTitle>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">View recent documents and resume analysis.</p>
-                  </div>
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href="/documents">View all</Link>
-                  </Button>
-                </CardHeader>
-                <CardContent className="p-6 pt-0">
-                  <div className="overflow-hidden rounded-2xl border border-border">
-                    {documents.map((document, index) => (
-                      <Link
-                        key={dashboardItemKey(document, index)}
-                        href={document.href}
-                        className="grid gap-4 border-b border-border bg-background p-4 transition duration-150 ease-out last:border-b-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:grid-cols-[minmax(0,1fr)_112px_120px_96px]"
-                      >
-                        <span>
-                          <span className="block text-sm font-medium leading-6 text-foreground">{document.title}</span>
-                          <span className="block text-sm leading-6 text-muted-foreground">{document.type}</span>
-                        </span>
-                        <span className={`h-7 w-fit rounded-full border px-3 py-1 text-xs font-medium ${document.badge}`}>
-                          {document.risk}
-                        </span>
-                        <span className="text-sm leading-6 text-muted-foreground">{document.status}</span>
-                        <span className="text-sm leading-6 text-muted-foreground md:text-right">{document.time}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="p-6">
-                  <CardTitle className="text-xl">Recent Reports</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-0 p-6 pt-0">
-                  {reports.map((report, index) => (
-                    <Link key={dashboardItemKey(report, index)} href={report.href} className="mb-3 block rounded-2xl border border-border bg-background p-4 transition duration-150 ease-out last:mb-0 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <span className="flex items-center justify-between gap-3">
-                        <span className="block text-sm font-medium leading-6 text-foreground">{report.title}</span>
-                        <span className={`h-7 w-fit rounded-full border px-3 py-1 text-xs font-medium ${riskBadge(report.risk)}`}>{report.risk}</span>
-                      </span>
-                      <span className="mt-1 block text-sm leading-6 text-muted-foreground">{report.document}</span>
-                      <span className="mt-3 flex items-center justify-between gap-3 text-xs font-medium text-muted-foreground">
-                        <span>{report.status}</span>
-                        <span>{report.time}</span>
-                      </span>
-                    </Link>
-                  ))}
-                </CardContent>
-              </Card>
-            </section>
-
-            <section className="mt-8">
-              <Card>
-                <CardHeader className="p-6">
-                  <CardTitle className="text-xl">Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-0 p-6 pt-0">
-                  {auditActivities.map((activity, index) => {
-                    const Icon = activity.icon;
-
-                    return (
-                      <div key={dashboardItemKey(activity, index)} className="relative flex gap-4 pb-5 last:pb-0">
-                        {index < auditActivities.length - 1 ? <span className="absolute left-5 top-10 h-[calc(100%-40px)] w-px bg-border" aria-hidden="true" /> : null}
-                        <span className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
-                          <Icon className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                        <span className="min-w-0 flex-1 rounded-2xl border border-border bg-background p-4">
-                          <span className="flex items-center justify-between gap-3">
-                            <span className="block text-sm font-medium leading-6 text-foreground">{activity.title}</span>
-                            <span className="text-xs font-medium leading-6 text-muted-foreground">{activity.time}</span>
-                          </span>
-                          <span className="mt-1 block text-sm leading-6 text-muted-foreground">{activity.detail}</span>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            </section>
-
-            <section aria-label="Quick actions" className="mt-8 grid gap-4 md:grid-cols-3">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-
-                return (
+            <section className="rounded-lg border border-[#2C3632] bg-[#121817]/80 p-5">
+              <h2 className="text-lg font-semibold text-[#F5F5EF]">Reports ready</h2>
+              <div className="mt-4 space-y-3">
+                {reports.length ? reports.slice(0, 3).map((report, index) => (
                   <Link
-                    key={action.label}
-                    href={action.href}
-                    className="group flex min-h-20 items-center justify-between rounded-2xl border border-border bg-card/80 p-4 transition duration-150 ease-out hover:-translate-y-1 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    key={itemKey(report, index)}
+                    href={report.href}
+                    className="block rounded-md border border-[#2C3632] bg-[#0B0F0E]/45 p-4 transition duration-150 hover:border-[#D9B76E]/45 hover:bg-[#1B2421] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A7C957]"
                   >
-                    <span className="flex items-center gap-3 text-sm font-medium text-foreground">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                      {action.label}
+                    <span className="block truncate text-sm font-medium text-[#F5F5EF]">{report.title}</span>
+                    <span className="mt-1 block truncate text-xs text-[#A2AAA5]">{report.document}</span>
+                    <span className="mt-3 flex items-center justify-between gap-3">
+                      <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", riskTone(report.risk))}>{report.risk}</span>
+                      <span className="text-xs text-[#A2AAA5]">{report.updated}</span>
                     </span>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground transition group-hover:text-primary" aria-hidden="true" />
                   </Link>
-                );
-              })}
+                )) : (
+                  <div className="rounded-md border border-[#2C3632] bg-[#0B0F0E]/45 p-4 text-sm leading-6 text-[#A2AAA5]">
+                    Reports will appear after a contract has been analyzed.
+                  </div>
+                )}
+              </div>
             </section>
-          </div>
-        </main>
-      </div>
 
-      <Button asChild aria-label="Upload contract" className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full px-0 shadow-[0_16px_48px_rgba(59,130,246,0.34)] sm:hidden">
-        <Link href="/upload">
-          <Plus className="h-6 w-6" aria-hidden="true" />
-        </Link>
-      </Button>
-    </div>
+            <section className="rounded-lg border border-[#D9B76E]/30 bg-[#D9B76E]/10 p-5">
+              <div className="flex gap-3">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#D9B76E]" aria-hidden="true" />
+                <p className="text-sm leading-6 text-[#A2AAA5]">
+                  Review high-risk clauses with counsel before signing.
+                </p>
+              </div>
+            </section>
+          </motion.aside>
+        </section>
+      </div>
+    </DashboardShell>
+      ) : null}
+    </>
   );
 }
