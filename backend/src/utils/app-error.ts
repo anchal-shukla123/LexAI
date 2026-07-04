@@ -4,6 +4,7 @@ export type AppErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "UPLOAD_REJECTED"
   | "INTERNAL_ERROR";
 
 const statusByCode: Record<AppErrorCode, number> = {
@@ -12,6 +13,7 @@ const statusByCode: Record<AppErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  UPLOAD_REJECTED: 400,
   INTERNAL_ERROR: 500
 };
 
@@ -35,4 +37,3 @@ export function validationError(message: string, details: unknown[] = []) {
 export function notFound(message: string, details: unknown[] = []) {
   return new AppError("NOT_FOUND", message, details);
 }
-
