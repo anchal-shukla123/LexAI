@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 
 import { sendPaginated, sendSuccess } from "../../utils/response.js";
+import { getRequestContext } from "../shared/request-context.js";
 import { parseOrThrow } from "../shared/validation.js";
 import { createDocument, getDocumentDetail, listDocuments, softDeleteDocument, updateDocument } from "./documents.service.js";
 import {
@@ -12,7 +13,8 @@ import {
 
 export const getDocuments: RequestHandler = async (req, res) => {
   const query = parseOrThrow(documentsQuerySchema, req.query);
-  const result = await listDocuments({
+  const context = await getRequestContext(req);
+  const result = await listDocuments(context, {
     page: query.page ?? 1,
     limit: query.limit ?? 20,
     status: query.status
@@ -22,20 +24,23 @@ export const getDocuments: RequestHandler = async (req, res) => {
 
 export const getDocument: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
-  const document = await getDocumentDetail(params.documentId);
+  const context = await getRequestContext(req);
+  const document = await getDocumentDetail(context, params.documentId);
   sendSuccess(res, document);
 };
 
 export const postDocument: RequestHandler = async (req, res) => {
   const body = parseOrThrow(createDocumentSchema, req.body);
-  const document = await createDocument(body);
+  const context = await getRequestContext(req);
+  const document = await createDocument(context, body);
   sendSuccess(res, document, 201);
 };
 
 export const patchDocument: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
   const body = parseOrThrow(updateDocumentSchema, req.body);
-  const document = await updateDocument({
+  const context = await getRequestContext(req);
+  const document = await updateDocument(context, {
     documentId: params.documentId,
     ...body
   });
@@ -44,6 +49,7 @@ export const patchDocument: RequestHandler = async (req, res) => {
 
 export const deleteDocument: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
-  const result = await softDeleteDocument(params.documentId);
+  const context = await getRequestContext(req);
+  const result = await softDeleteDocument(context, params.documentId);
   sendSuccess(res, result);
 };

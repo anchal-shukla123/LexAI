@@ -2,7 +2,7 @@ import type { AnalysisStatus, ClauseFinding, RiskFinding } from "@prisma/client"
 
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
-import { getDemoContext } from "../demo/demo-context.js";
+import type { RequestContext } from "../shared/request-context.js";
 import {
   buildMockReportContent,
   mockAnalysisRiskScore,
@@ -19,8 +19,8 @@ type AnalyzeDocumentInput = {
 
 const activeAnalysisStatuses: AnalysisStatus[] = ["QUEUED", "PROCESSING"];
 
-export async function runMockAnalysis(input: AnalyzeDocumentInput) {
-  const { user, workspace } = await getDemoContext();
+export async function runMockAnalysis(context: RequestContext, input: AnalyzeDocumentInput) {
+  const { user, workspace } = context;
 
   const document = await prisma.document.findFirst({
     where: {

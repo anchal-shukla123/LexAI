@@ -1,9 +1,9 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
-import { getDemoContext } from "../demo/demo-context.js";
+import type { RequestContext } from "../shared/request-context.js";
 
-export async function getChatSessionDetail(sessionId: string) {
-  const { workspace } = await getDemoContext();
+export async function getChatSessionDetail(context: RequestContext, sessionId: string) {
+  const { workspace } = context;
 
   const session = await prisma.chatSession.findFirst({
     where: {
@@ -49,4 +49,3 @@ export async function getChatSessionDetail(sessionId: string) {
 
   return session;
 }
-

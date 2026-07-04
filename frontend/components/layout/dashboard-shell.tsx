@@ -24,6 +24,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AccountArea, useAuthDisplay } from "@/components/layout/auth-account";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
@@ -44,6 +45,7 @@ function isActivePath(pathname: string, href: string) {
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const authDisplay = useAuthDisplay();
 
   return (
     <aside className="flex h-full w-[280px] flex-col border-r border-border bg-card/95 px-6 py-6 shadow-[16px_0_48px_rgba(0,0,0,0.18)]">
@@ -53,7 +55,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </span>
         <span>
           <span className="block text-xl font-semibold leading-6 tracking-[-0.01em] text-foreground">LexAI</span>
-          <span className="block text-xs font-medium leading-5 text-muted-foreground">Apex Workspace</span>
+          <span className="block max-w-[180px] truncate text-xs font-medium leading-5 text-muted-foreground">{authDisplay.workspaceName}</span>
         </span>
       </Link>
 
@@ -197,13 +199,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <Button size="sm" variant="ghost" aria-label="Dark theme enabled" className="h-10 w-10 px-0">
               <Moon className="h-5 w-5" aria-hidden="true" />
             </Button>
-            <button
-              type="button"
-              aria-label="Open profile"
-              className="h-10 w-10 rounded-full border border-border bg-muted text-sm font-semibold text-foreground transition duration-150 ease-out hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              AL
-            </button>
+            <AccountArea />
           </div>
         </header>
 

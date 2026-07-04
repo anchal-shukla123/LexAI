@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { AppError } from "../../utils/app-error.js";
 import { sendSuccess } from "../../utils/response.js";
+import { getRequestContext } from "../shared/request-context.js";
 import { parseOrThrow } from "../shared/validation.js";
 import { documentParamsSchema } from "../documents/documents.validation.js";
 import { uploadDocumentFileForMvp } from "./uploads.service.js";
@@ -50,7 +51,8 @@ export const uploadSingleFile: RequestHandler = (req, res, next) => {
 
 export const uploadDocumentFile: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
-  const result = await uploadDocumentFileForMvp({
+  const context = await getRequestContext(req);
+  const result = await uploadDocumentFileForMvp(context, {
     documentId: params.documentId,
     file: req.file
   });

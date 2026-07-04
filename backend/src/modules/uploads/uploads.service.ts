@@ -5,7 +5,7 @@ import type { Buffer } from "node:buffer";
 
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
-import { getDemoContext } from "../demo/demo-context.js";
+import type { RequestContext } from "../shared/request-context.js";
 import { isAllowedUpload } from "./uploads.validation.js";
 
 type UploadDocumentFileInput = {
@@ -30,12 +30,12 @@ function safeFileName(extension: string) {
   return `${Date.now()}-${randomUUID()}${extension}`;
 }
 
-export async function uploadDocumentFileForMvp(input: UploadDocumentFileInput) {
+export async function uploadDocumentFileForMvp(context: RequestContext, input: UploadDocumentFileInput) {
   if (!input.file) {
     throw new AppError("UPLOAD_REJECTED", "A file is required.");
   }
 
-  const { user, workspace } = await getDemoContext();
+  const { user, workspace } = context;
   const document = await prisma.document.findFirst({
     where: {
       id: input.documentId,

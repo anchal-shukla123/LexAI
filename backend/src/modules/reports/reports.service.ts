@@ -3,7 +3,7 @@ import type { Prisma, ReportStatus } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
 import type { Pagination } from "../../utils/response.js";
-import { getDemoContext } from "../demo/demo-context.js";
+import type { RequestContext } from "../shared/request-context.js";
 
 type ListReportsInput = {
   page: number;
@@ -20,8 +20,8 @@ function paginationFor(page: number, limit: number, total: number): Pagination {
   };
 }
 
-export async function listReports(input: ListReportsInput) {
-  const { workspace } = await getDemoContext();
+export async function listReports(context: RequestContext, input: ListReportsInput) {
+  const { workspace } = context;
   const where: Prisma.ReportWhereInput = {
     workspaceId: workspace.id,
     ...(input.status ? { status: input.status } : {})
@@ -61,8 +61,8 @@ export async function listReports(input: ListReportsInput) {
   };
 }
 
-export async function getReportDetail(reportId: string) {
-  const { workspace } = await getDemoContext();
+export async function getReportDetail(context: RequestContext, reportId: string) {
+  const { workspace } = context;
 
   const report = await prisma.report.findFirst({
     where: {
@@ -118,4 +118,3 @@ export async function getReportDetail(reportId: string) {
 
   return report;
 }
-

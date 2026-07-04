@@ -3,7 +3,7 @@ import type { DocumentStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
 import type { Pagination } from "../../utils/response.js";
-import { getDemoContext } from "../demo/demo-context.js";
+import type { RequestContext } from "../shared/request-context.js";
 
 type ListDocumentsInput = {
   page: number;
@@ -31,8 +31,8 @@ function paginationFor(page: number, limit: number, total: number): Pagination {
   };
 }
 
-export async function listDocuments(input: ListDocumentsInput) {
-  const { workspace } = await getDemoContext();
+export async function listDocuments(context: RequestContext, input: ListDocumentsInput) {
+  const { workspace } = context;
   const where: Prisma.DocumentWhereInput = {
     workspaceId: workspace.id,
     deletedAt: null,
@@ -93,8 +93,8 @@ export async function listDocuments(input: ListDocumentsInput) {
   };
 }
 
-export async function createDocument(input: CreateDocumentInput) {
-  const { user, workspace } = await getDemoContext();
+export async function createDocument(context: RequestContext, input: CreateDocumentInput) {
+  const { user, workspace } = context;
 
   const document = await prisma.document.create({
     data: {
@@ -124,8 +124,8 @@ export async function createDocument(input: CreateDocumentInput) {
   return document;
 }
 
-export async function updateDocument(input: UpdateDocumentInput) {
-  const { user, workspace } = await getDemoContext();
+export async function updateDocument(context: RequestContext, input: UpdateDocumentInput) {
+  const { user, workspace } = context;
 
   const existingDocument = await prisma.document.findFirst({
     where: {
@@ -170,8 +170,8 @@ export async function updateDocument(input: UpdateDocumentInput) {
   return document;
 }
 
-export async function softDeleteDocument(documentId: string) {
-  const { user, workspace } = await getDemoContext();
+export async function softDeleteDocument(context: RequestContext, documentId: string) {
+  const { user, workspace } = context;
 
   const existingDocument = await prisma.document.findFirst({
     where: {
@@ -214,8 +214,8 @@ export async function softDeleteDocument(documentId: string) {
   };
 }
 
-export async function getDocumentDetail(documentId: string) {
-  const { workspace } = await getDemoContext();
+export async function getDocumentDetail(context: RequestContext, documentId: string) {
+  const { workspace } = context;
 
   const document = await prisma.document.findFirst({
     where: {

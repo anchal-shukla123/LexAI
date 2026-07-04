@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { sendSuccess } from "../../utils/response.js";
 import { documentParamsSchema } from "../documents/documents.validation.js";
+import { getRequestContext } from "../shared/request-context.js";
 import { parseOrThrow } from "../shared/validation.js";
 import { runMockAnalysis } from "./analysis.service.js";
 
@@ -15,7 +16,8 @@ const analyzeDocumentSchema = z
 export const analyzeDocument: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
   const body = parseOrThrow(analyzeDocumentSchema, req.body ?? {});
-  const result = await runMockAnalysis({
+  const context = await getRequestContext(req);
+  const result = await runMockAnalysis(context, {
     documentId: params.documentId,
     mode: body.mode
   });

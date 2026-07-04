@@ -1,10 +1,9 @@
 import { DocumentStatus, RiskLevel } from "@prisma/client";
 
 import { prisma } from "../../config/prisma.js";
-import { getDemoContext } from "./demo-context.js";
+import type { RequestContext } from "../shared/request-context.js";
 
-export async function getDemoDashboard() {
-  const context = await getDemoContext();
+export async function getDemoDashboard(context: RequestContext) {
   const workspaceId = context.workspace.id;
 
   const [
@@ -84,6 +83,7 @@ export async function getDemoDashboard() {
   ]);
 
   return {
+    contextMode: context.mode,
     workspace: {
       ...context.workspace,
       role: context.membership.role
@@ -99,4 +99,3 @@ export async function getDemoDashboard() {
     currentUser: context.user
   };
 }
-

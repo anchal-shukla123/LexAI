@@ -26,6 +26,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AccountArea, useAuthDisplay } from "@/components/layout/auth-account";
 import { safeFetch } from "@/lib/api-client";
 import type { DashboardData } from "@/types/api";
 
@@ -118,6 +119,8 @@ const quickActions = [
 ];
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const authDisplay = useAuthDisplay();
+
   return (
     <aside className="flex h-full w-[280px] flex-col border-r border-border bg-card/95 px-6 py-6 shadow-[16px_0_48px_rgba(0,0,0,0.18)]">
       <Link href="/" className="group flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -126,7 +129,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </span>
         <span>
           <span className="block text-xl font-semibold leading-6 tracking-[-0.01em] text-foreground">LexAI</span>
-          <span className="block text-xs font-medium leading-5 text-muted-foreground">Apex Workspace</span>
+          <span className="block max-w-[180px] truncate text-xs font-medium leading-5 text-muted-foreground">{authDisplay.workspaceName}</span>
         </span>
       </Link>
 
@@ -259,6 +262,7 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFallback, setIsFallback] = useState(false);
+  const authDisplay = useAuthDisplay();
   const shouldReduceMotion = useReducedMotion();
   const entrance = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 };
 
@@ -338,6 +342,9 @@ export default function DashboardPage() {
   const userName = dashboard?.currentUser.name ?? "Apex Legal";
   const userEmail = dashboard?.currentUser.email ?? "apex@lexai.local";
   const workspaceName = dashboard?.workspace.name ?? "LexAI Intelligence";
+  const displayUserName = authDisplay.hasStoredAuth ? authDisplay.userName : userName;
+  const displayUserEmail = authDisplay.hasStoredAuth ? authDisplay.userEmail : userEmail;
+  const displayWorkspaceName = authDisplay.hasStoredAuth ? authDisplay.workspaceName : workspaceName;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -420,13 +427,7 @@ export default function DashboardPage() {
             <Button size="sm" variant="ghost" aria-label="Dark theme enabled" className="h-10 w-10 px-0">
               <Moon className="h-5 w-5" aria-hidden="true" />
             </Button>
-            <button
-              type="button"
-              aria-label="Open profile"
-              className="h-10 w-10 rounded-full border border-border bg-muted text-sm font-semibold text-foreground transition duration-150 ease-out hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {userName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
-            </button>
+            <AccountArea />
           </div>
         </header>
 
@@ -442,13 +443,13 @@ export default function DashboardPage() {
                 <CardContent className="p-6 sm:p-8 lg:p-10">
                   <div className="inline-flex h-7 items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/10 px-3 text-xs font-medium text-[#C4B5FD]">
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
-                    {isFallback ? "Using frontend demo data" : isLoading ? "Loading backend workspace" : workspaceName}
+                    {isFallback ? "Using frontend demo data" : isLoading ? "Loading backend workspace" : displayWorkspaceName}
                   </div>
                   <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-tight text-foreground sm:text-5xl">
-                    Welcome back, {userName.split(" ")[0] ?? "there"}.
+                    Welcome back, {displayUserName.split(" ")[0] ?? "there"}.
                   </h1>
                   <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                    {userEmail} can review recent documents, report snapshots, and activity from the LexAI demo workspace.
+                    {displayUserEmail} can review recent documents, report snapshots, and activity from the LexAI demo workspace.
                   </p>
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
                     <motion.div
