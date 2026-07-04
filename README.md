@@ -2,9 +2,23 @@
 
 AI-powered contract and legal document intelligence SaaS.
 
+[![Full-stack MVP](https://img.shields.io/badge/Full--stack-MVP-2563eb)](#)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](#)
+[![Express](https://img.shields.io/badge/Express-TypeScript-111827)](#)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-316192)](#)
+[![JWT Auth](https://img.shields.io/badge/JWT-Auth-7c3aed)](#)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-16a34a)](https://lex-ai-frontend-opal.vercel.app/)
+
 LexAI is a full-stack MVP in the ApexGroup product ecosystem. It gives legal, operations, and startup teams a premium workspace for uploading contracts, running mock AI analysis, reviewing clause and risk findings, generating reports, and exploring document-aware chat flows.
 
 Built by Anchal Shukla.
+
+## Live Demo
+
+Frontend:
+https://lex-ai-frontend-opal.vercel.app/
+
+The live demo uses hosted backend APIs and demo/test data. The AI analysis is a deterministic mock provider for MVP demonstration.
 
 ## Overview
 
@@ -102,10 +116,10 @@ All screenshots use demo/test data. No real legal documents or secrets are shown
 ![Dashboard](assets/screenshots/dashboard-auth.png)
 
 ### Upload Flow
-![Upload Flow](assets/screenshots/upload.png)
+![Upload Flow](assets/screenshots/Screenshot%202026-07-04%20123820.png)
 
 ### Contract Analysis
-![Contract Analysis](assets/screenshots/analysis.png)
+![Contract Analysis](assets/screenshots/Screenshot%202026-07-04%20123901.png)
 
 ### AI Chat
 ![AI Chat](assets/screenshots/ai-chat.png)
@@ -296,6 +310,14 @@ LexAI can be deployed with:
 - Frontend on Vercel
 - Backend on Render/Railway
 - PostgreSQL on Neon/Supabase/Render/Railway
+
+The frontend is currently deployed at:
+
+```text
+https://lex-ai-frontend-opal.vercel.app/
+```
+
+The deployed frontend reads the backend API base URL from `NEXT_PUBLIC_API_URL`. The backend must allow the Vercel frontend origin in CORS configuration, for example through `CORS_ORIGIN=https://lex-ai-frontend-opal.vercel.app`.
 
 See [docs/DEPLOYMENT_PLAN.md](docs/DEPLOYMENT_PLAN.md) and [docs/PRODUCTION_ENV.md](docs/PRODUCTION_ENV.md) for the deployment architecture, environment variables, migration strategy, CORS notes, and smoke tests.
 

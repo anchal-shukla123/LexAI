@@ -6,6 +6,11 @@ LexAI is a full-stack legal document intelligence MVP for uploading contracts, r
 
 The goal of the MVP is to demonstrate the full product journey and engineering architecture for an AI-assisted contract review platform without overstating the current AI capabilities.
 
+Live Demo:
+https://lex-ai-frontend-opal.vercel.app/
+
+This demo is portfolio/MVP-grade and uses mock AI analysis, not production legal advice.
+
 ## 2. Problem
 
 Legal, operations, and startup teams often need to review contracts quickly, identify risky clauses, and share summaries with stakeholders. Existing workflows can be slow, fragmented, and difficult to explain to non-legal teammates.

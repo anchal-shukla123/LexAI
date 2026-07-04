@@ -8,6 +8,8 @@ Legal review is often slow, fragmented, and difficult to translate into clear bu
 
 The current product is an MVP. It demonstrates the end-to-end product journey and technical foundation while using mock AI outputs. The goal is to show how a future OCR and LLM-backed legal intelligence platform would feel and operate without overstating the current AI capability.
 
+Live demo: https://lex-ai-frontend-opal.vercel.app/
+
 ## Target Users
 
 - Startup founders reviewing commercial and financing documents.

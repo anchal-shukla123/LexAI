@@ -131,6 +131,15 @@ Open:
 http://localhost:3000
 ```
 
+## Live Demo Flow
+
+1. Open the live URL: https://lex-ai-frontend-opal.vercel.app/
+2. Sign up with a test email.
+3. Upload a safe test file.
+4. Review the analysis output.
+5. Open chat, report, and settings views.
+6. Logout and see `Demo Mode`.
+
 ## Demo Script
 
 1. Open the landing page at `http://localhost:3000`.
