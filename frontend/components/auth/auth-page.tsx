@@ -24,16 +24,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { login, signup } from "@/lib/auth-client";
+import { ApiClientError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 type AuthMode = "login" | "signup";
 
 type FormErrors = {
+  form?: string;
   name?: string;
   email?: string;
   password?: string;
   terms?: string;
 };
+
+const defaultWorkspaceName = "Apex Workspace";
 
 const content = {
   login: {
@@ -99,6 +104,36 @@ const premiumInputClass =
   "lexai-auth-input h-12 rounded-xl pl-10";
 const fieldIconClass = "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8AA0C8]";
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function getBackendErrorMessage(error: unknown, mode: AuthMode) {
+  if (!(error instanceof ApiClientError)) {
+    return "Something went wrong. Please try again.";
+  }
+
+  if (error.status === 0 || error.code === "NETWORK_ERROR" || error.code === "CONFIG_MISSING") {
+    return "Backend unavailable. Please start the backend server and try again.";
+  }
+
+  if (mode === "login" && error.status === 401) {
+    return "Invalid email or password.";
+  }
+
+  const detailsMessage = error.details
+    ?.map((detail) => {
+      if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") {
+        return detail.message;
+      }
+
+      return null;
+    })
+    .find(Boolean);
+
+  return detailsMessage ?? error.message;
+}
+
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
@@ -138,6 +173,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
     if (!email.trim()) {
       nextErrors.email = "Enter your email address.";
+    } else if (!isValidEmail(email.trim())) {
+      nextErrors.email = "Enter a valid email address.";
     }
 
     if (!password) {
@@ -154,14 +191,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function redirectAfterMockDelay(setLoading: (value: boolean) => void) {
-    setLoading(true);
-    window.setTimeout(() => {
-      router.push("/dashboard");
-    }, 700);
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setForgotMessage("");
 
@@ -169,13 +199,39 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       return;
     }
 
-    redirectAfterMockDelay(setIsSubmitting);
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      if (mode === "signup") {
+        await signup({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          workspaceName: defaultWorkspaceName
+        });
+      } else {
+        await login({
+          email: email.trim(),
+          password
+        });
+      }
+
+      router.push("/dashboard");
+    } catch (error) {
+      setErrors({ form: getBackendErrorMessage(error, mode) });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleGoogle() {
     setErrors({});
-    setForgotMessage("");
-    redirectAfterMockDelay(setGoogleLoading);
+    setGoogleLoading(true);
+    window.setTimeout(() => {
+      setGoogleLoading(false);
+      setForgotMessage(mode === "signup" ? "Google sign up will be available soon." : "Google login will be available soon.");
+    }, 250);
   }
 
   const entrance = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 };
@@ -384,6 +440,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   )}
 
                   {forgotMessage ? <p className="rounded-lg border border-[#3B82F6]/25 bg-[#3B82F6]/10 px-3 py-2 text-sm leading-6 text-[#BFDBFE]">{forgotMessage}</p> : null}
+                  {errors.form ? <p className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-sm leading-6 text-[#FCA5A5]">{errors.form}</p> : null}
 
                   <Button
                     type="submit"

@@ -6,12 +6,14 @@ const DEFAULT_TIMEOUT_MS = 3500;
 export class ApiClientError extends Error {
   status: number;
   code?: string;
+  details?: unknown[];
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, details?: unknown[]) {
     super(message);
     this.name = "ApiClientError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -69,7 +71,7 @@ export async function safeFetch<T>(path: string, init?: RequestInit): Promise<T>
 
   if (!response.ok || !payload.success) {
     const error = "error" in payload ? payload.error : undefined;
-    throw new ApiClientError(error?.message ?? "Backend request failed.", response.status, error?.code);
+    throw new ApiClientError(error?.message ?? "Backend request failed.", response.status, error?.code, error?.details);
   }
 
   return payload.data as T;
@@ -130,7 +132,7 @@ export async function safeFetchPaginated<T>(path: string, init?: RequestInit): P
 
   if (!response.ok || !payload.success) {
     const error = "error" in payload ? payload.error : undefined;
-    throw new ApiClientError(error?.message ?? "Backend request failed.", response.status, error?.code);
+    throw new ApiClientError(error?.message ?? "Backend request failed.", response.status, error?.code, error?.details);
   }
 
   return payload as PaginatedResponse<T>;

@@ -23,6 +23,38 @@ export type PaginatedResponse<T> = {
   };
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string | null;
+};
+
+export type AuthWorkspace = {
+  id: string;
+  name: string;
+  slug: string;
+  role?: string;
+};
+
+export type AuthSession = {
+  token: string;
+  user: AuthUser;
+  workspace: AuthWorkspace;
+  currentWorkspaceId?: string;
+};
+
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+export type SignupPayload = {
+  name: string;
+  email: string;
+  password: string;
+  workspaceName: string;
+};
+
 export type WorkspaceSummary = {
   id: string;
   name: string;
