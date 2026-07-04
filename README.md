@@ -289,6 +289,18 @@ Key endpoints:
 
 See [docs/API_OVERVIEW.md](docs/API_OVERVIEW.md) for more detail.
 
+## Deployment
+
+LexAI can be deployed with:
+
+- Frontend on Vercel
+- Backend on Render/Railway
+- PostgreSQL on Neon/Supabase/Render/Railway
+
+See [docs/DEPLOYMENT_PLAN.md](docs/DEPLOYMENT_PLAN.md) and [docs/PRODUCTION_ENV.md](docs/PRODUCTION_ENV.md) for the deployment architecture, environment variables, migration strategy, CORS notes, and smoke tests.
+
+Current MVP uses local file storage for uploads. Production upload persistence should use S3-compatible storage.
+
 ## Current Limitations
 
 - AI analysis is mocked and deterministic enough for MVP demonstration.
