@@ -187,6 +187,7 @@ export type ReportDetail = ReportListItem & {
 };
 
 export type DashboardData = {
+  contextMode?: "auth" | "demo";
   workspace: WorkspaceSummary;
   counts: {
     documents: number;

@@ -24,7 +24,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AccountArea, useAuthDisplay } from "@/components/layout/auth-account";
+import { AccountArea, AuthModeBadge, useAuthDisplay } from "@/components/layout/auth-account";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
@@ -112,7 +112,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({ children, contextMode }: { children: React.ReactNode; contextMode?: "auth" | "demo" }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -187,6 +187,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <AuthModeBadge contextMode={contextMode} />
             <Button asChild size="sm" className="hidden shadow-[0_8px_24px_rgba(59,130,246,0.28)] sm:inline-flex">
               <Link href="/upload">
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />

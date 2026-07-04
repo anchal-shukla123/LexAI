@@ -26,7 +26,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AccountArea, useAuthDisplay } from "@/components/layout/auth-account";
+import { AccountArea, AuthModeBadge, useAuthDisplay } from "@/components/layout/auth-account";
 import { safeFetch } from "@/lib/api-client";
 import type { DashboardData } from "@/types/api";
 
@@ -415,6 +415,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <AuthModeBadge contextMode={dashboard?.contextMode} />
             <Button asChild size="sm" className="hidden shadow-[0_8px_24px_rgba(59,130,246,0.28)] sm:inline-flex">
               <Link href="/upload">
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />

@@ -1,9 +1,8 @@
 import type { ApiResponse, PaginatedResponse } from "@/types/api";
+import { AUTH_STORAGE_KEY, TOKEN_STORAGE_KEY, canUseStorage, emitAuthStorageChange } from "@/lib/auth-storage";
 
 const DEFAULT_DEV_API_URL = "http://localhost:8000/api/v1";
 const DEFAULT_TIMEOUT_MS = 3500;
-const TOKEN_STORAGE_KEY = "lexai_token";
-const AUTH_STORAGE_KEY = "lexai_auth";
 
 export class ApiClientError extends Error {
   status: number;
@@ -33,10 +32,6 @@ export function getApiBaseUrl() {
   return "";
 }
 
-function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
-
 function getStoredToken() {
   if (!canUseStorage()) {
     return null;
@@ -52,6 +47,7 @@ function clearStoredAuth() {
 
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  emitAuthStorageChange();
 }
 
 function hasAuthorizationHeader(headers: Headers) {

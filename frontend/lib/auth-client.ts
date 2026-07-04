@@ -1,12 +1,6 @@
 import { postJson, safeFetch } from "@/lib/api-client";
+import { AUTH_STORAGE_KEY, TOKEN_STORAGE_KEY, canUseStorage, emitAuthStorageChange } from "@/lib/auth-storage";
 import type { AuthSession, LoginPayload, SignupPayload } from "@/types/api";
-
-const TOKEN_STORAGE_KEY = "lexai_token";
-const AUTH_STORAGE_KEY = "lexai_auth";
-
-function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
 
 export function getToken() {
   if (!canUseStorage()) {
@@ -30,6 +24,7 @@ export function setAuthSession(data: AuthSession) {
       currentWorkspaceId: data.currentWorkspaceId ?? data.workspace.id
     })
   );
+  emitAuthStorageChange();
 }
 
 export function clearAuthSession() {
@@ -39,6 +34,7 @@ export function clearAuthSession() {
 
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  emitAuthStorageChange();
 }
 
 export function getStoredAuth(): Omit<AuthSession, "token"> | null {
