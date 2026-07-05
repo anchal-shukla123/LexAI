@@ -116,6 +116,17 @@ export type DocumentDetail = DocumentListItem & {
     confidence: number | null;
     pageNumber: number | null;
   }>;
+  clauseExtraction?: {
+    status: string;
+    clauseCount: number;
+    categories: Record<string, number>;
+    topClauses: Array<{
+      title: string;
+      category: string;
+      confidence: number | null;
+      excerpt: string;
+    }>;
+  };
   riskFindings: Array<{
     id: string;
     riskLevel: string;

@@ -2,7 +2,9 @@ import type { DocumentStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
+import { getClauseExtractionSummary } from "../clauses/clause-extraction.service.js";
 import type { Pagination } from "../../utils/response.js";
+import { getDocumentExtractionSummary } from "../extraction/extraction.service.js";
 import type { RequestContext } from "../shared/request-context.js";
 
 type ListDocumentsInput = {
@@ -333,5 +335,16 @@ export async function getDocumentDetail(context: RequestContext, documentId: str
     throw new AppError("NOT_FOUND", "Document not found.");
   }
 
-  return document;
+  const extraction = await getDocumentExtractionSummary(document.id);
+  const clauseExtraction = await getClauseExtractionSummary(document.id);
+
+  return {
+    ...document,
+    clauseFindings: document.clauseFindings.map((clause) => ({
+      ...clause,
+      sourceText: clause.sourceText.length > 600 ? `${clause.sourceText.slice(0, 599)}...` : clause.sourceText
+    })),
+    extraction,
+    clauseExtraction
+  };
 }

@@ -46,6 +46,21 @@ enum ClauseCategory {
   INDEMNITY
   NOTICES
   OTHER
+  CONFIDENTIALITY
+  AUDIT_RIGHTS
+  NOTICE
+  GOVERNING_LAW
+  DISPUTE_RESOLUTION
+  RENEWAL
+  INTELLECTUAL_PROPERTY
+  DATA_PROTECTION
+  WARRANTY
+  ASSIGNMENT
+  FORCE_MAJEURE
+  SERVICE_LEVEL
+  INSURANCE
+  NON_COMPETE
+  MISCELLANEOUS
 }
 
 enum ReportStatus {
@@ -72,6 +87,13 @@ enum ChatRole {
   USER
   ASSISTANT
   SYSTEM
+}
+
+enum ExtractionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  UNSUPPORTED
 }
 
 model User {
@@ -164,10 +186,12 @@ model Document {
   clauseFindings     ClauseFinding[]
   createdBy          User             @relation("DocumentCreator", fields: [createdById], references: [id])
   currentAnalysisJob AnalysisJob?      @relation("CurrentDocumentAnalysisJob", fields: [currentAnalysisJobId], references: [id])
+  extractions        DocumentExtraction[]
   files              DocumentFile[]
   recommendations    Recommendation[]
   reports            Report[]
   riskFindings       RiskFinding[]
+  textChunks         DocumentTextChunk[]
   workspace          Workspace        @relation(fields: [workspaceId], references: [id])
 
   @@index([workspaceId])
@@ -191,11 +215,52 @@ model DocumentFile {
   createdAt    DateTime @default(now())
 
   document   Document @relation(fields: [documentId], references: [id])
+  extractions DocumentExtraction[]
   uploadedBy User     @relation("DocumentFileUploader", fields: [uploadedById], references: [id])
 
   @@index([documentId])
   @@index([uploadedById])
   @@index([storageKey])
+}
+
+model DocumentExtraction {
+  id             String           @id @default(cuid())
+  documentId     String
+  fileId         String?
+  status         ExtractionStatus
+  extractedText  String?          @db.Text
+  wordCount      Int              @default(0)
+  characterCount Int              @default(0)
+  pageCount      Int?
+  mimeType       String
+  fileName       String
+  errorMessage   String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  document Document      @relation(fields: [documentId], references: [id])
+  file     DocumentFile? @relation(fields: [fileId], references: [id])
+
+  @@index([documentId])
+  @@index([fileId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DocumentTextChunk {
+  id             String   @id @default(cuid())
+  documentId     String
+  chunkIndex     Int
+  text           String   @db.Text
+  characterStart Int?
+  characterEnd   Int?
+  wordCount      Int
+  createdAt      DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
 }
 
 model AnalysisJob {
