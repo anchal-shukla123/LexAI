@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { forwardRef, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { getStoredAuth, getToken, logout } from "@/lib/auth-client";
@@ -222,3 +223,17 @@ export function SiteAuthActions({ variant = "default" }: { variant?: "default" |
     </div>
   );
 }
+
+type StartReviewLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+  children: ReactNode;
+};
+
+export const StartReviewLink = forwardRef<HTMLAnchorElement, StartReviewLinkProps>(function StartReviewLink({ children, ...props }, ref) {
+  const authDisplay = useAuthDisplay();
+
+  return (
+    <Link ref={ref} href={authDisplay.hasToken ? "/dashboard" : "/signup"} {...props}>
+      {children}
+    </Link>
+  );
+});

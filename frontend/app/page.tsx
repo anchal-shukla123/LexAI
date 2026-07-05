@@ -2,17 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  Check,
 } from "lucide-react";
 
 import { ChaosToClaritySection } from "@/components/landing/chaos-to-clarity-section";
 import { CinematicBackground } from "@/components/landing/cinematic-background";
 import { CinematicFooter } from "@/components/landing/cinematic-footer";
 import { FloatingContractObject } from "@/components/landing/floating-contract-object";
-import { ReviewFlowTimeline } from "@/components/landing/review-flow-timeline";
 import { Reveal, Stagger, StaggerItem } from "@/components/landing/scroll-reveal";
-import { WorkspacePanels } from "@/components/landing/workspace-panels";
-import { SiteAuthActions } from "@/components/layout/auth-account";
+import { WorkspaceSection } from "@/components/landing/workspace-section";
+import { WorkflowSection } from "@/components/landing/workflow-section";
+import { SiteAuthActions, StartReviewLink } from "@/components/layout/auth-account";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
@@ -32,68 +31,6 @@ const problemPoints = [
   "Termination duties are hard to compare.",
   "Payment and privacy terms are easy to miss.",
   "Security obligations are often vague."
-];
-
-const reviewSteps = [
-  {
-    title: "Upload agreement",
-    body: "Add a PDF, DOCX, PNG, JPG, or JPEG.",
-    icon: "upload" as const
-  },
-  {
-    title: "Run review",
-    body: "LexAI creates an analysis job and structured findings.",
-    icon: "file" as const
-  },
-  {
-    title: "Review findings",
-    body: "See clauses, risks, and recommendations in one place.",
-    icon: "risk" as const
-  },
-  {
-    title: "Prepare report",
-    body: "Create a plain-English summary for stakeholders.",
-    icon: "report" as const
-  }
-];
-
-const workspacePanels = [
-  {
-    eyebrow: "Clause Review",
-    title: "Liability",
-    body: "Uncapped exposure detected.",
-    tone: "sage" as const
-  },
-  {
-    eyebrow: "Risk Findings",
-    title: "Security obligations missing",
-    body: "Breach timeline not defined.",
-    tone: "gold" as const
-  },
-  {
-    eyebrow: "Report Output",
-    title: "Plain-English summary",
-    body: "Ready for stakeholder review.",
-    tone: "sage" as const
-  }
-];
-
-const worksToday = [
-  "JWT signup and login",
-  "Auth-aware workspace data",
-  "Document upload",
-  "Persisted analysis records",
-  "Reports and chat views",
-  "Demo Mode fallback"
-];
-
-const comesNext = [
-  "OCR extraction",
-  "LLM-backed legal review",
-  "Source citations",
-  "Object storage",
-  "Team permissions",
-  "Production billing"
 ];
 
 const projectMeta = [
@@ -162,9 +99,9 @@ export default function HomePage() {
                   size="lg"
                   className="w-full rounded-md bg-[#A7C957] px-6 text-[#0B0F0E] shadow-[0_14px_36px_rgba(167,201,87,0.14)] hover:bg-[#B6D86A] sm:w-auto"
                 >
-                  <Link href="/signup">
+                  <StartReviewLink>
                     Start review <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-                  </Link>
+                  </StartReviewLink>
                 </Button>
                 <Button
                   asChild
@@ -261,86 +198,9 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="landing-section review-flow-section container relative z-10 scroll-mt-24">
-          <Reveal className="max-w-3xl">
-            <p className="landing-label">The review flow</p>
-            <h2 className="mt-5 font-serif text-4xl font-semibold leading-tight text-[#F5F5EF] sm:text-5xl">
-              From uploaded document to structured review.
-            </h2>
-          </Reveal>
+        <WorkspaceSection />
 
-          <ReviewFlowTimeline steps={reviewSteps} />
-
-          <Reveal className="mvp-note mt-8 max-w-3xl text-sm leading-6 text-[#A2AAA5]">
-            In this MVP, analysis is powered by a deterministic mock provider. The workflow is built so OCR and LLM review can be added next.
-          </Reveal>
-        </section>
-
-        <section className="landing-section workspace-section relative z-10">
-          <div className="container">
-            <div className="grid items-center gap-12 lg:grid-cols-[0.82fr_1.18fr]">
-              <Reveal>
-                <p className="landing-label">The workspace</p>
-                <h2 className="mt-5 max-w-2xl font-serif text-4xl font-semibold leading-tight text-[#F5F5EF] sm:text-5xl">
-                  A review workspace, not another document dump.
-                </h2>
-                <p className="mt-6 max-w-xl text-lg leading-8 text-[#A2AAA5]">
-                  LexAI keeps the review connected: clauses, risks, recommendations, chat, and reports all stay tied to the document.
-                </p>
-              </Reveal>
-
-              <WorkspacePanels panels={workspacePanels} />
-            </div>
-          </div>
-        </section>
-
-        <section className="landing-section transparency-section container relative z-10">
-          <div className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
-            <Reveal>
-              <p className="landing-label">MVP transparency</p>
-              <h2 className="mt-5 font-serif text-4xl font-semibold leading-tight text-[#F5F5EF] sm:text-5xl">
-                Built to prove the workflow first.
-              </h2>
-              <p className="mt-6 text-lg leading-8 text-[#A2AAA5]">
-                LexAI currently uses a deterministic mock analysis provider. The product flow is real: authentication, workspace context, uploads, analysis jobs, persisted findings, reports, and chat views.
-              </p>
-            </Reveal>
-
-            <Reveal className="system-layer-visual" delay={0.12} scale>
-              {["Auth", "Upload", "Analysis Job", "Findings", "Report"].map((item, index) => (
-                <div key={item} className={`system-layer system-layer-${index + 1}`}>
-                  <span>{item}</span>
-                </div>
-              ))}
-            </Reveal>
-          </div>
-
-          <div className="mt-12 grid gap-5 lg:grid-cols-2">
-            <Reveal className="transparency-column" delay={0.05}>
-              <h3>What works today</h3>
-              <ul>
-                {worksToday.map((item) => (
-                  <li key={item}>
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-
-            <Reveal className="transparency-column" delay={0.16}>
-              <h3>What comes next</h3>
-              <ul>
-                {comesNext.map((item) => (
-                  <li key={item}>
-                    <span className="future-dot" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-          </div>
-        </section>
+        <WorkflowSection />
 
         <section className="landing-section about-section container relative z-10">
           <div className="about-signature-grid">
@@ -394,9 +254,9 @@ export default function HomePage() {
                 size="lg"
                 className="w-full rounded-md bg-[#A7C957] px-6 text-[#0B0F0E] shadow-[0_14px_36px_rgba(167,201,87,0.14)] hover:bg-[#B6D86A] sm:w-auto"
               >
-                <Link href="/signup">
+                <StartReviewLink>
                   Start review <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-                </Link>
+                </StartReviewLink>
               </Button>
               <Button
                 asChild
