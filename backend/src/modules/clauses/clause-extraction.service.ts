@@ -48,6 +48,14 @@ type StoredClause = {
   startOffset: number | null;
 };
 
+type ClauseReviewFilters = {
+  category?: ClauseCategory;
+  riskLevel?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  extractionMethod?: ClauseExtractionMethod;
+  hasRisks?: boolean;
+  search?: string;
+};
+
 type PreparedClauseExtraction = {
   documentId: string;
   status: ClauseExtractionStatus;
@@ -190,6 +198,11 @@ function normalizeWhitespace(value: string) {
 function excerpt(value: string) {
   const normalized = normalizeWhitespace(value);
   return normalized.length > maxExcerptLength ? `${normalized.slice(0, maxExcerptLength - 1)}...` : normalized;
+}
+
+function excerptWithLimit(value: string, limit: number) {
+  const normalized = normalizeWhitespace(value);
+  return normalized.length > limit ? `${normalized.slice(0, limit - 1)}...` : normalized;
 }
 
 function titleCase(value: string) {
@@ -529,6 +542,30 @@ function categoriesFor(drafts: Array<{ category: ClauseCategory }>) {
   }, {});
 }
 
+function riskRank(level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") {
+  if (level === "CRITICAL") return 4;
+  if (level === "HIGH") return 3;
+  if (level === "MEDIUM") return 2;
+  return 1;
+}
+
+function highestRiskLevel(risks: Array<{ riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" }>) {
+  return risks.reduce<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null>((highest, risk) => {
+    if (!highest) return risk.riskLevel;
+    return riskRank(risk.riskLevel) > riskRank(highest) ? risk.riskLevel : highest;
+  }, null);
+}
+
+function negotiationStatusFor(input: {
+  extractionMethod: ClauseExtractionMethod;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null;
+}) {
+  if (input.extractionMethod === "MOCK") return "FALLBACK_REVIEW";
+  if (!input.riskLevel) return "NO_MAJOR_RISK_DETECTED";
+  if (input.riskLevel === "CRITICAL" || input.riskLevel === "HIGH") return "NEEDS_NEGOTIATION";
+  return "REVIEW_RECOMMENDED";
+}
+
 async function assertDocumentAccess(context: RequestContext, documentId: string) {
   const document = await prisma.document.findFirst({
     where: {
@@ -792,6 +829,124 @@ export async function listClauseFindings(
   return {
     clauses,
     pagination
+  };
+}
+
+export async function getClauseReview(context: RequestContext, documentId: string, filters: ClauseReviewFilters) {
+  await assertDocumentAccess(context, documentId);
+
+  const where: Prisma.ClauseFindingWhereInput = {
+    documentId,
+    ...(filters.category ? { category: filters.category } : {}),
+    ...(filters.extractionMethod ? { extractionMethod: filters.extractionMethod } : {}),
+    ...(filters.search
+      ? {
+          OR: [
+            { title: { contains: filters.search, mode: "insensitive" } },
+            { plainLanguageSummary: { contains: filters.search, mode: "insensitive" } },
+            { sourceText: { contains: filters.search, mode: "insensitive" } }
+          ]
+        }
+      : {})
+  };
+
+  const clauses = await prisma.clauseFinding.findMany({
+    where,
+    orderBy: [{ extractionMethod: "asc" }, { startOffset: "asc" }, { pageNumber: "asc" }, { createdAt: "asc" }],
+    take: 100,
+    select: {
+      id: true,
+      title: true,
+      category: true,
+      extractionMethod: true,
+      plainLanguageSummary: true,
+      sourceText: true,
+      confidence: true,
+      pageNumber: true,
+      startOffset: true,
+      riskFindings: {
+        orderBy: [{ riskLevel: "desc" }, { confidence: "desc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          riskLevel: true,
+          description: true,
+          evidence: true,
+          impact: true,
+          recommendationHint: true,
+          ruleId: true,
+          detectionMethod: true,
+          confidence: true,
+          recommendations: {
+            orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              priority: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const filteredClauses = clauses.filter((clause) => {
+    if (filters.hasRisks !== undefined && (clause.riskFindings.length > 0) !== filters.hasRisks) return false;
+    if (filters.riskLevel && !clause.riskFindings.some((risk) => risk.riskLevel === filters.riskLevel)) return false;
+    return true;
+  });
+
+  const items = filteredClauses.map((clause) => {
+    const riskLevel = highestRiskLevel(clause.riskFindings);
+    const linkedRecommendations = clause.riskFindings.flatMap((risk) =>
+      risk.recommendations.map((recommendation) => ({
+        ...recommendation,
+        riskFindingId: risk.id,
+        riskTitle: risk.title
+      }))
+    );
+
+    return {
+      id: clause.id,
+      title: clause.title,
+      category: clause.category,
+      plainLanguageSummary: clause.plainLanguageSummary,
+      confidence: clause.confidence,
+      extractionMethod: clause.extractionMethod,
+      pageNumber: clause.pageNumber,
+      startOffset: clause.startOffset,
+      excerpt: excerptWithLimit(clause.sourceText, 520),
+      evidencePreview: excerptWithLimit(clause.sourceText, 360),
+      riskLevel,
+      negotiationStatus: negotiationStatusFor({
+        extractionMethod: clause.extractionMethod,
+        riskLevel
+      }),
+      linkedRisks: clause.riskFindings.map((risk) => ({
+        id: risk.id,
+        title: risk.title,
+        category: risk.category,
+        riskLevel: risk.riskLevel,
+        description: risk.description,
+        evidence: risk.evidence ? excerptWithLimit(risk.evidence, 300) : null,
+        impact: risk.impact,
+        recommendationHint: risk.recommendationHint,
+        ruleId: risk.ruleId,
+        detectionMethod: risk.detectionMethod,
+        confidence: risk.confidence
+      })),
+      linkedRecommendations
+    };
+  });
+
+  return {
+    documentId,
+    total: items.length,
+    filters,
+    categories: categoriesFor(items),
+    items
   };
 }
 

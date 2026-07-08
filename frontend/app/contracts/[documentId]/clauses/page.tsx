@@ -1,0 +1,447 @@
+"use client";
+
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BadgeCheck,
+  CheckCircle2,
+  FileText,
+  Gavel,
+  Loader2,
+  LockKeyhole,
+  MessageSquareText,
+  RefreshCw,
+  Scale,
+  Search,
+  ShieldCheck,
+  WalletCards
+} from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { safeFetch } from "@/lib/api-client";
+import type { ClauseReviewItem, ClauseReviewResponse, DocumentDetail } from "@/types/api";
+
+type BadgeTone = "low" | "medium" | "high" | "info" | "success" | "warning";
+
+const categoryFilters = ["LIABILITY", "TERMINATION", "PAYMENT", "CONFIDENTIALITY", "DATA_PROTECTION", "SECURITY"];
+const riskFilters = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+
+function titleCase(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function confidencePercent(value: number) {
+  return Math.round(value <= 1 ? value * 100 : value);
+}
+
+function riskTone(level?: string | null): BadgeTone {
+  if (!level) return "success";
+  if (level === "CRITICAL" || level === "HIGH") return "high";
+  if (level === "LOW") return "low";
+  return "medium";
+}
+
+function statusLabel(status: string) {
+  if (status === "NO_MAJOR_RISK_DETECTED") return "No major risk detected";
+  if (status === "NEEDS_NEGOTIATION") return "Needs negotiation";
+  if (status === "FALLBACK_REVIEW") return "Fallback review";
+  return "Review recommended";
+}
+
+function clauseIconFor(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("payment") || normalized.includes("fee") || normalized.includes("billing")) return WalletCards;
+  if (normalized.includes("termination") || normalized.includes("law") || normalized.includes("dispute")) return Gavel;
+  if (normalized.includes("privacy") || normalized.includes("data") || normalized.includes("security") || normalized.includes("confidential")) return LockKeyhole;
+  return Scale;
+}
+
+function StatusBadge({ children, tone }: { children: React.ReactNode; tone: BadgeTone }) {
+  const tones = {
+    low: "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]",
+    medium: "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]",
+    high: "border-[#D66A5E]/45 bg-[#D66A5E]/10 text-[#E89A92]",
+    info: "border-[#6BAA9C]/45 bg-[#6BAA9C]/10 text-[#9BCBC2]",
+    success: "border-[#A7C957]/40 bg-[#A7C957]/10 text-[#D7E8A5]",
+    warning: "border-[#D9B76E]/45 bg-[#D9B76E]/10 text-[#F0D89B]"
+  };
+
+  return <span className={`inline-flex min-h-7 items-center rounded-full border px-3 py-1 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+}
+
+function filterQuery(filters: {
+  category: string;
+  riskLevel: string;
+  extractionMethod: string;
+  hasRisks: string;
+  search: string;
+}) {
+  const params = new URLSearchParams();
+  if (filters.category) params.set("category", filters.category);
+  if (filters.riskLevel) params.set("riskLevel", filters.riskLevel);
+  if (filters.extractionMethod) params.set("extractionMethod", filters.extractionMethod);
+  if (filters.hasRisks) params.set("hasRisks", filters.hasRisks);
+  if (filters.search.trim()) params.set("search", filters.search.trim());
+  const value = params.toString();
+  return value ? `?${value}` : "";
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-6 text-sm leading-6 text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+export default function ClauseReviewPage() {
+  const params = useParams<{ documentId: string }>();
+  const documentId = params.documentId;
+  const [document, setDocument] = useState<DocumentDetail | null>(null);
+  const [review, setReview] = useState<ClauseReviewResponse | null>(null);
+  const [selectedClauseId, setSelectedClauseId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const [filters, setFilters] = useState({
+    category: "",
+    riskLevel: "",
+    extractionMethod: "",
+    hasRisks: "",
+    search: ""
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function loadReview() {
+      setIsLoading(true);
+      setLoadError("");
+
+      try {
+        const [documentDetail, clauseReview] = await Promise.all([
+          safeFetch<DocumentDetail>(`/documents/${documentId}`, { signal: controller.signal }),
+          safeFetch<ClauseReviewResponse>(`/documents/${documentId}/clause-review${filterQuery(filters)}`, {
+            signal: controller.signal
+          })
+        ]);
+
+        if (isMounted) {
+          setDocument(documentDetail);
+          setReview(clauseReview);
+          setSelectedClauseId((current) => {
+            if (current && clauseReview.items.some((item) => item.id === current)) return current;
+            return clauseReview.items[0]?.id ?? null;
+          });
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Unable to load clause review workspace.");
+          setDocument(null);
+          setReview(null);
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    void loadReview();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [documentId, filters, retryCount]);
+
+  const clauses = useMemo(() => review?.items ?? [], [review]);
+  const selectedClause = useMemo<ClauseReviewItem | null>(() => clauses.find((clause) => clause.id === selectedClauseId) ?? clauses[0] ?? null, [clauses, selectedClauseId]);
+  const chatHref = `/ai-chat?documentId=${documentId}`;
+  const analysisHref = `/contracts/demo-analysis?documentId=${documentId}`;
+  const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
+
+  if (isLoading && !review) {
+    return (
+      <DashboardShell>
+        <div className="mx-auto flex min-h-[60vh] max-w-[960px] items-center justify-center">
+          <div className="w-full rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-8 text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#D9B76E]" aria-hidden="true" />
+            <h1 className="mt-5 text-2xl font-bold text-foreground">Loading clause workspace</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">Fetching extracted clauses, linked risks, and recommendations.</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <DashboardShell>
+        <div className="mx-auto flex min-h-[60vh] max-w-[960px] items-center justify-center">
+          <div className="w-full rounded-2xl border border-[#D66A5E]/40 bg-[#121817]/95 p-8 text-center">
+            <AlertTriangle className="mx-auto h-8 w-8 text-[#E89A92]" aria-hidden="true" />
+            <h1 className="mt-5 text-2xl font-bold text-foreground">Could not load clause review</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{loadError}</p>
+            <Button type="button" className="mt-6" onClick={() => setRetryCount((value) => value + 1)}>
+              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  return (
+    <DashboardShell>
+      <div className="mx-auto max-w-[1480px] motion-safe:animate-[lexai-section-in_320ms_ease-out]">
+        <Button asChild variant="ghost" size="sm" className="mb-4 px-0 text-muted-foreground hover:bg-transparent">
+          <Link href={analysisHref}>
+            <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+            Back to analysis
+          </Link>
+        </Button>
+
+        <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                <StatusBadge tone="info">Clause review</StatusBadge>
+                <StatusBadge tone={review?.items.some((item) => item.extractionMethod === "MOCK") ? "warning" : "success"}>
+                  {review?.items.some((item) => item.extractionMethod === "MOCK") ? "MOCK fallback present" : "RULE_BASED clauses"}
+                </StatusBadge>
+                <StatusBadge tone="info">{clauses.length} clauses</StatusBadge>
+              </div>
+              <h1 className="text-3xl font-bold leading-tight text-foreground">{document?.title ?? "Clause Review Workspace"}</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Inspect each extracted clause with linked risks, recommendations, evidence previews, and negotiation guidance.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild>
+                <Link href={chatHref}>
+                  <MessageSquareText className="mr-2 h-5 w-5" aria-hidden="true" />
+                  Ask AI
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={reportHref}>
+                  <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
+                  Open report
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-[#2C3632] bg-[#121817]/80 p-4">
+          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto]">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                value={filters.search}
+                onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                placeholder="Search clauses, evidence, risks..."
+                className="pl-9"
+              />
+            </label>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setFilters({ category: "", riskLevel: "", extractionMethod: "", hasRisks: "", search: "" })}
+            >
+              Clear filters
+            </Button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {categoryFilters.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setFilters((current) => ({ ...current, category: current.category === category ? "" : category }))}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${filters.category === category ? "border-[#D9B76E]/50 bg-[#D9B76E]/15 text-[#F0D89B]" : "border-[#2C3632] bg-[#151C19] text-muted-foreground hover:text-foreground"}`}
+              >
+                {titleCase(category)}
+              </button>
+            ))}
+            {riskFilters.map((risk) => (
+              <button
+                key={risk}
+                type="button"
+                onClick={() => setFilters((current) => ({ ...current, riskLevel: current.riskLevel === risk ? "" : risk }))}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${filters.riskLevel === risk ? "border-[#D66A5E]/50 bg-[#D66A5E]/15 text-[#E89A92]" : "border-[#2C3632] bg-[#151C19] text-muted-foreground hover:text-foreground"}`}
+              >
+                {titleCase(risk)} risk
+              </button>
+            ))}
+            {["RULE_BASED", "MOCK"].map((method) => (
+              <button
+                key={method}
+                type="button"
+                onClick={() => setFilters((current) => ({ ...current, extractionMethod: current.extractionMethod === method ? "" : method }))}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${filters.extractionMethod === method ? "border-[#6BAA9C]/50 bg-[#6BAA9C]/15 text-[#9BCBC2]" : "border-[#2C3632] bg-[#151C19] text-muted-foreground hover:text-foreground"}`}
+              >
+                {method}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFilters((current) => ({ ...current, hasRisks: current.hasRisks === "true" ? "" : "true" }))}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${filters.hasRisks === "true" ? "border-[#D9B76E]/50 bg-[#D9B76E]/15 text-[#F0D89B]" : "border-[#2C3632] bg-[#151C19] text-muted-foreground hover:text-foreground"}`}
+            >
+              Has risks
+            </button>
+          </div>
+        </section>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+          <aside className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-3 shadow-[0_16px_48px_rgba(0,0,0,0.2)] xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-auto">
+            {clauses.length > 0 ? (
+              <div className="space-y-2">
+                {clauses.map((clause) => {
+                  const Icon = clauseIconFor(`${clause.category} ${clause.title}`);
+                  const selected = selectedClause?.id === clause.id;
+
+                  return (
+                    <button
+                      key={clause.id}
+                      type="button"
+                      onClick={() => setSelectedClauseId(clause.id)}
+                      className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-[#D9B76E]/50 bg-[#D9B76E]/10" : "border-[#2C3632] bg-[#151C19]/70 hover:border-[#6BAA9C]/40"}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#6BAA9C]/10 text-[#9BCBC2]">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h2 className="line-clamp-2 text-sm font-semibold leading-5 text-foreground">{clause.title}</h2>
+                          <p className="mt-1 text-xs text-muted-foreground">{titleCase(clause.category)}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <StatusBadge tone={riskTone(clause.riskLevel)}>{clause.riskLevel ? `${titleCase(clause.riskLevel)} risk` : "No major risk"}</StatusBadge>
+                            <StatusBadge tone={clause.extractionMethod === "MOCK" ? "warning" : "info"}>{clause.extractionMethod}</StatusBadge>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState message="No clauses match the current filters for this real document." />
+            )}
+          </aside>
+
+          <main>
+            {selectedClause ? (
+              <article className="space-y-6">
+                <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.22)]">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        <StatusBadge tone={riskTone(selectedClause.riskLevel)}>{selectedClause.riskLevel ? `${titleCase(selectedClause.riskLevel)} risk` : "No major risk detected"}</StatusBadge>
+                        <StatusBadge tone={selectedClause.extractionMethod === "MOCK" ? "warning" : "info"}>{selectedClause.extractionMethod}</StatusBadge>
+                        <StatusBadge tone="info">{confidencePercent(selectedClause.confidence)}% confidence</StatusBadge>
+                      </div>
+                      <h2 className="text-3xl font-bold leading-tight text-foreground">{selectedClause.title}</h2>
+                      <p className="mt-2 text-sm font-medium text-muted-foreground">{titleCase(selectedClause.category)} clause</p>
+                    </div>
+                    <StatusBadge tone={selectedClause.negotiationStatus === "NEEDS_NEGOTIATION" ? "high" : selectedClause.negotiationStatus === "NO_MAJOR_RISK_DETECTED" ? "success" : "medium"}>
+                      {statusLabel(selectedClause.negotiationStatus)}
+                    </StatusBadge>
+                  </div>
+                </section>
+
+                <section className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-[#D7E8A5]" aria-hidden="true" />
+                      <h3 className="text-lg font-semibold text-foreground">What This Means</h3>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-muted-foreground">{selectedClause.plainLanguageSummary}</p>
+                  </div>
+                  <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5">
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className="h-5 w-5 text-[#9BCBC2]" aria-hidden="true" />
+                      <h3 className="text-lg font-semibold text-foreground">Why It Matters</h3>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                      {selectedClause.linkedRisks[0]?.impact ??
+                        (selectedClause.linkedRisks.length > 0
+                          ? "This clause is connected to detected risks and should be reviewed before execution."
+                          : "No linked risk finding was detected for this clause, but the source language should still be checked for business fit.")}
+                    </p>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5">
+                  <h3 className="text-lg font-semibold text-foreground">Evidence Preview</h3>
+                  <p className="mt-3 rounded-xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4 text-sm leading-7 text-muted-foreground">{selectedClause.evidencePreview}</p>
+                </section>
+
+                <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5">
+                  <h3 className="text-lg font-semibold text-foreground">Linked Risks</h3>
+                  {selectedClause.linkedRisks.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {selectedClause.linkedRisks.map((risk) => (
+                        <div key={risk.id} className="rounded-xl border border-[#D66A5E]/25 bg-[#D66A5E]/10 p-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <h4 className="text-base font-semibold text-foreground">{risk.title}</h4>
+                              <p className="mt-2 text-sm leading-6 text-muted-foreground">{risk.description}</p>
+                            </div>
+                            <StatusBadge tone={riskTone(risk.riskLevel)}>{titleCase(risk.riskLevel)} risk</StatusBadge>
+                          </div>
+                          {risk.evidence ? <p className="mt-3 text-sm leading-6 text-muted-foreground">Evidence: {risk.evidence}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState message="No major risk detected for this clause." />
+                  )}
+                </section>
+
+                <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5">
+                  <h3 className="text-lg font-semibold text-foreground">Suggested Negotiation Action</h3>
+                  {selectedClause.linkedRecommendations.length > 0 || selectedClause.linkedRisks.some((risk) => risk.recommendationHint) ? (
+                    <div className="mt-4 grid gap-3">
+                      {selectedClause.linkedRecommendations.map((recommendation) => (
+                        <div key={recommendation.id} className="rounded-xl border border-[#A7C957]/25 bg-[#A7C957]/10 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#D7E8A5]">Priority {recommendation.priority}</p>
+                          <h4 className="mt-2 text-base font-semibold text-foreground">{recommendation.title}</h4>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">{recommendation.description}</p>
+                        </div>
+                      ))}
+                      {selectedClause.linkedRecommendations.length === 0
+                        ? selectedClause.linkedRisks
+                            .filter((risk) => risk.recommendationHint)
+                            .map((risk) => (
+                              <div key={risk.id} className="rounded-xl border border-[#A7C957]/25 bg-[#A7C957]/10 p-4">
+                                <h4 className="text-base font-semibold text-foreground">{risk.title}</h4>
+                                <p className="mt-2 text-sm leading-6 text-muted-foreground">{risk.recommendationHint}</p>
+                              </div>
+                            ))
+                        : null}
+                    </div>
+                  ) : (
+                    <EmptyState message="No specific negotiation action was generated for this clause." />
+                  )}
+                </section>
+              </article>
+            ) : (
+              <EmptyState message="Select a clause to review its risks, recommendations, and evidence." />
+            )}
+          </main>
+        </div>
+      </div>
+    </DashboardShell>
+  );
+}

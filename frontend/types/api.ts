@@ -110,6 +110,7 @@ export type DocumentDetail = DocumentListItem & {
   clauseFindings: Array<{
     id: string;
     category: string;
+    extractionMethod?: "RULE_BASED" | "MOCK" | string;
     title: string;
     sourceText: string | null;
     plainLanguageSummary: string | null;
@@ -118,29 +119,72 @@ export type DocumentDetail = DocumentListItem & {
   }>;
   clauseExtraction?: {
     status: string;
-    clauseCount: number;
+    realClauseCount: number;
+    mockClauseCount: number;
+    storedClauseCount: number;
     categories: Record<string, number>;
     topClauses: Array<{
       title: string;
       category: string;
+      extractionMethod?: "RULE_BASED" | "MOCK" | string;
+      isFallbackMock?: boolean;
       confidence: number | null;
       excerpt: string;
     }>;
   };
+  riskDetection?: {
+    status: string;
+    realRiskCount: number;
+    mockRiskCount: number;
+    storedRiskCount: number;
+    riskLevelCounts: Record<string, number>;
+    topRisks: Array<{
+      title: string;
+      category: string | null;
+      riskLevel: string;
+      detectionMethod?: "RULE_BASED" | "MOCK" | string;
+      isFallbackMock?: boolean;
+      ruleId: string | null;
+      confidence: number | null;
+      evidence: string | null;
+    }>;
+  };
   riskFindings: Array<{
     id: string;
+    clauseFindingId?: string | null;
+    detectionMethod?: "RULE_BASED" | "MOCK" | string;
+    ruleId?: string | null;
+    category?: string | null;
     riskLevel: string;
     title: string;
     description: string;
     evidence: string | null;
     impact: string | null;
+    recommendationHint?: string | null;
     confidence: number | null;
+    clauseFinding?: {
+      title: string;
+      category: string;
+    } | null;
   }>;
   recommendations: Array<{
     id: string;
+    riskFindingId?: string | null;
     title: string;
     description: string;
     priority: number;
+    riskFinding?: {
+      id: string;
+      title: string;
+      riskLevel: string;
+      ruleId: string | null;
+      category: string | null;
+      detectionMethod?: "RULE_BASED" | "MOCK" | string;
+      clauseFinding?: {
+        title: string;
+        category: string;
+      } | null;
+    } | null;
   }>;
   reports: Array<Pick<ReportListItem, "id" | "title" | "status" | "summarySnapshot" | "riskScoreSnapshot" | "createdAt" | "updatedAt">>;
   chatSessions: Array<{
@@ -187,6 +231,8 @@ export type ReportDetail = ReportListItem & {
     format: string;
     status: string;
     storageKey: string | null;
+    fileName?: string | null;
+    downloadUrl?: string | null;
     expiresAt: string | null;
     startedAt: string | null;
     completedAt: string | null;
@@ -195,6 +241,25 @@ export type ReportDetail = ReportListItem & {
     createdAt: string;
     updatedAt: string;
   }>;
+};
+
+export type ExportJobDetail = {
+  id: string;
+  reportId: string;
+  workspaceId: string;
+  requestedById: string;
+  format: "PDF" | "DOCX" | "SECURE_LINK" | string;
+  status: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | string;
+  storageKey: string | null;
+  fileName: string | null;
+  downloadUrl: string | null;
+  expiresAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type DashboardData = {
@@ -216,6 +281,9 @@ export type DashboardData = {
     createdAt: string;
     actorUser: UserSummary | null;
   }>;
+  riskStats?: {
+    levels: Record<string, number>;
+  };
   currentUser: UserSummary;
 };
 
@@ -244,4 +312,67 @@ export type ChatSessionDetail = {
     metadata: unknown;
     createdAt: string;
   }>;
+};
+
+export type ChatSessionListItem = Omit<ChatSessionDetail, "messages"> & {
+  messages: ChatSessionDetail["messages"];
+};
+
+export type ChatCitation = {
+  type: "RISK" | "CLAUSE" | "RECOMMENDATION" | "CHUNK" | "REPORT" | string;
+  title: string;
+  label: string;
+  excerpt: string;
+  score?: number;
+  metadata?: Record<string, string | number | null>;
+};
+
+export type ChatMessageCreateResult = {
+  sessionId: string;
+  userMessage: ChatSessionDetail["messages"][number];
+  assistantMessage: ChatSessionDetail["messages"][number];
+};
+
+export type ClauseReviewItem = {
+  id: string;
+  title: string;
+  category: string;
+  plainLanguageSummary: string;
+  confidence: number;
+  extractionMethod: "RULE_BASED" | "MOCK" | string;
+  pageNumber: number | null;
+  startOffset: number | null;
+  excerpt: string;
+  evidencePreview: string;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | string | null;
+  negotiationStatus: string;
+  linkedRisks: Array<{
+    id: string;
+    title: string;
+    category: string | null;
+    riskLevel: string;
+    description: string;
+    evidence: string | null;
+    impact: string | null;
+    recommendationHint: string | null;
+    ruleId: string | null;
+    detectionMethod: "RULE_BASED" | "MOCK" | string;
+    confidence: number;
+  }>;
+  linkedRecommendations: Array<{
+    id: string;
+    title: string;
+    description: string;
+    priority: number;
+    riskFindingId: string;
+    riskTitle: string;
+  }>;
+};
+
+export type ClauseReviewResponse = {
+  documentId: string;
+  total: number;
+  filters: Record<string, unknown>;
+  categories: Record<string, number>;
+  items: ClauseReviewItem[];
 };

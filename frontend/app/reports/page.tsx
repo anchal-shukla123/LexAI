@@ -184,7 +184,13 @@ export default function ReportsPage() {
     };
   }, []);
 
-  const reports = useMemo(() => (apiReports.length > 0 ? apiReports.map(toUiReport) : fallbackReports), [apiReports]);
+  const reports = useMemo(() => {
+    if (isLoading) {
+      return [];
+    }
+
+    return apiReports.length > 0 ? apiReports.map(toUiReport) : fallbackReports;
+  }, [apiReports, isLoading]);
   const exportReadyCount = reports.filter((report) => report.status.toLowerCase().includes("ready") || report.status.toLowerCase().includes("completed")).length;
   const highRiskCount = reports.filter((report) => report.risk === "High").length;
   const overviewCards = apiReports.length > 0

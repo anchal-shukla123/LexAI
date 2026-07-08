@@ -123,8 +123,11 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
 
-    safeFetchPaginated<DocumentListItem>("/documents")
+    safeFetchPaginated<DocumentListItem>("/documents", {
+      signal: controller.signal
+    })
       .then((response) => {
         if (!isMounted) {
           return;
@@ -146,10 +149,11 @@ export default function DocumentsPage() {
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, []);
 
-  const documents = useMemo(() => (apiDocuments.length > 0 ? apiDocuments.map(toUiDocument) : fallbackDocuments), [apiDocuments]);
+  const documents = useMemo(() => (isFallback ? fallbackDocuments : apiDocuments.map(toUiDocument)), [apiDocuments, isFallback]);
 
   return (
     <DashboardShell>
@@ -222,6 +226,11 @@ export default function DocumentsPage() {
                   </span>
                 </Link>
               ))}
+              {!isLoading && documents.length === 0 ? (
+                <div className="rounded-2xl border border-[#2C3632] bg-[#0B0F0E]/70 p-5 text-sm leading-6 text-muted-foreground">
+                  No documents yet. Upload a contract to start your first review.
+                </div>
+              ) : null}
             </div>
           </div>
 

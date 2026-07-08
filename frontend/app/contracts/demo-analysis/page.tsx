@@ -52,6 +52,10 @@ type RecommendationCard = {
   title: string;
   change: string;
   why: string;
+  linkedRisk?: string;
+  linkedClause?: string;
+  severity?: string;
+  method?: string;
 };
 
 type HeatmapCell = {
@@ -217,6 +221,10 @@ function confidencePercent(value: number) {
   return Math.round(value <= 1 ? value * 100 : value);
 }
 
+function metadataObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
 function averageConfidence(document: DocumentDetail | null) {
   const values = [
     ...(document?.clauseFindings ?? []).map((finding) => finding.confidence),
@@ -298,33 +306,50 @@ function RiskScoreRing({ score }: { score: number }) {
 
 export default function DemoAnalysisPage() {
   const [document, setDocument] = useState<DocumentDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [hasResolvedMode, setHasResolvedMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFallback, setIsFallback] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
-    const documentId = new URLSearchParams(window.location.search).get("documentId");
-
-    if (!documentId) {
-      return () => {
-        isMounted = false;
-      };
-    }
+    const controller = new AbortController();
 
     async function loadDocument() {
+      const requestedDocumentId = new URLSearchParams(window.location.search).get("documentId");
+      if (!isMounted) return;
+
+      setDocumentId(requestedDocumentId);
+      setHasResolvedMode(true);
+
+      if (!requestedDocumentId) {
+        setDocument(null);
+        setLoadError("");
+        setIsFallback(true);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
+      setLoadError("");
+      setIsFallback(false);
 
       try {
-        const documentDetail = await safeFetch<DocumentDetail>(`/documents/${documentId}`);
+        const documentDetail = await safeFetch<DocumentDetail>(`/documents/${requestedDocumentId}`, {
+          signal: controller.signal
+        });
 
         if (isMounted) {
           setDocument(documentDetail);
           setIsFallback(false);
         }
-      } catch {
+      } catch (error) {
         if (isMounted) {
           setDocument(null);
-          setIsFallback(true);
+          setLoadError(error instanceof Error ? error.message : "Unable to load the real analysis report.");
+          setIsFallback(false);
         }
       } finally {
         if (isMounted) {
@@ -333,27 +358,37 @@ export default function DemoAnalysisPage() {
       }
     }
 
-    loadDocument();
+    void loadDocument();
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
-  }, []);
+  }, [retryCount]);
 
-  const riskScore = document?.riskScore ?? 74;
+  const isRealDocumentMode = Boolean(documentId);
+  const canRenderDemo = hasResolvedMode && !isRealDocumentMode;
+
+  const riskScore = document?.riskScore ?? (canRenderDemo ? 74 : 0);
+  const analysisMetadata = metadataObject(document?.currentAnalysisJob?.metadata);
+  const fallbackUsed = analysisMetadata.fallbackUsed === true || (document?.riskDetection?.mockRiskCount ?? 0) > 0;
+  const analysisSourceLabel = document ? (fallbackUsed ? "MOCK fallback findings" : "RULE_BASED findings") : "Demo analysis";
   const riskLabel = riskLevel(riskScore);
-  const documentTitle = document?.title ?? "Vendor Data Processing Agreement";
-  const documentStatus = document?.status ? titleCase(document.status) : "Analysis complete";
-  const summary = document?.summary ?? "Medium risk. Several clauses require review before signing.";
+  const documentTitle = document?.title ?? (canRenderDemo ? "Vendor Data Processing Agreement" : "Loading analysis");
+  const documentStatus = document?.status ? titleCase(document.status) : canRenderDemo ? "Analysis complete" : "Loading analysis";
+  const summary = document?.summary ?? (canRenderDemo ? "Medium risk. Several clauses require review before signing." : "Fetching the real analysis for this uploaded document.");
   const executiveSummary =
     document?.summary ??
-    "LexAI found moderate contractual risk in this agreement. The main concerns relate to uncapped liability, unclear termination rights, and limited data processing safeguards. The agreement is usable, but should be reviewed before execution.";
-  const chatHref = document?.chatSessions[0]?.id ? `/ai-chat?sessionId=${document.chatSessions[0].id}` : "/ai-chat";
+    (canRenderDemo
+      ? "LexAI found moderate contractual risk in this agreement. The main concerns relate to uncapped liability, unclear termination rights, and limited data processing safeguards. The agreement is usable, but should be reviewed before execution."
+      : "");
+  const chatHref = document?.id ? `/ai-chat?documentId=${document.id}` : "/ai-chat";
   const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
+  const clauseReviewHref = document?.id ? `/contracts/${document.id}/clauses` : "/contracts/demo-analysis";
   const lastAnalyzed = document?.currentAnalysisJob?.completedAt ?? document?.updatedAt ?? document?.createdAt;
   const activeRiskCategories = useMemo(() => {
     if (!document) {
-      return riskCategories;
+      return canRenderDemo ? riskCategories : [];
     }
 
     const categories = [
@@ -362,11 +397,11 @@ export default function DemoAnalysisPage() {
     ].filter(Boolean);
 
     return Array.from(new Set(categories)).slice(0, 4);
-  }, [document]);
+  }, [canRenderDemo, document]);
 
   const clauseCards = useMemo<ClauseCard[]>(() => {
     if (!document) {
-      return fallbackKeyClauses;
+      return canRenderDemo ? fallbackKeyClauses : [];
     }
 
     if (document.clauseFindings.length === 0) {
@@ -385,11 +420,11 @@ export default function DemoAnalysisPage() {
         tone
       };
     });
-  }, [document]);
+  }, [canRenderDemo, document]);
 
   const riskCards = useMemo<RiskCard[]>(() => {
     if (!document) {
-      return fallbackDetectedRisks;
+      return canRenderDemo ? fallbackDetectedRisks : [];
     }
 
     if (document.riskFindings.length === 0) {
@@ -400,29 +435,40 @@ export default function DemoAnalysisPage() {
       title: risk.title,
       severity: titleCase(risk.riskLevel),
       explanation: risk.description,
-      action: risk.impact ?? risk.evidence ?? "Review this finding with the legal team before execution."
+      action: risk.recommendationHint ?? risk.impact ?? risk.evidence ?? "Resolve this finding with precise contract language before execution."
     }));
-  }, [document]);
+  }, [canRenderDemo, document]);
 
   const recommendationCards = useMemo<RecommendationCard[]>(() => {
     if (!document) {
-      return fallbackRecommendations;
+      return canRenderDemo ? fallbackRecommendations : [];
     }
 
     if (document.recommendations.length === 0) {
       return [];
     }
 
-    return document.recommendations.map((recommendation) => ({
-      title: recommendation.title,
-      change: recommendation.description,
-      why: `Priority ${recommendation.priority}. Review and apply this recommendation before signature.`
-    }));
-  }, [document]);
+    return document.recommendations.map((recommendation) => {
+      const risk = recommendation.riskFinding ?? document.riskFindings.find((finding) => finding.id === recommendation.riskFindingId);
+      const linkedClause = risk?.clauseFinding?.title ?? null;
+
+      return {
+        title: recommendation.title,
+        change: recommendation.description,
+        why: risk?.riskLevel
+          ? `Priority ${recommendation.priority}. This addresses a ${titleCase(risk.riskLevel)} ${risk.ruleId ? `(${risk.ruleId}) ` : ""}finding${risk.detectionMethod ? ` detected by ${risk.detectionMethod}` : ""}.`
+          : `Priority ${recommendation.priority}. Apply this recommendation before signature.`,
+        linkedRisk: risk?.title,
+        linkedClause: linkedClause ?? undefined,
+        severity: risk?.riskLevel ? titleCase(risk.riskLevel) : undefined,
+        method: risk?.detectionMethod
+      };
+    });
+  }, [canRenderDemo, document]);
 
   const heatmapCells = useMemo<HeatmapCell[]>(() => {
     if (!document) {
-      return fallbackHeatmapCells;
+      return canRenderDemo ? fallbackHeatmapCells : [];
     }
 
     const riskCells = document.riskFindings.map((risk) => {
@@ -447,18 +493,50 @@ export default function DemoAnalysisPage() {
     });
 
     return [...riskCells, ...clauseCells].slice(0, 8);
-  }, [document]);
+  }, [canRenderDemo, document]);
 
   const processingMetadata = [
-    { label: "Clauses scanned", value: String(document ? document.clauseFindings.length : 216), icon: FileText, progress: document ? progressFromCount(document.clauseFindings.length, 8) : 100 },
-    { label: "Risks detected", value: String(document ? document.riskFindings.length : 7), icon: AlertTriangle, progress: document ? progressFromCount(document.riskFindings.length, 8) : 70 },
-    { label: "Summary generated", value: document ? (document.summary ? "Yes" : "No") : "Yes", icon: Sparkles, progress: document?.summary === null ? 20 : 100 },
+    { label: "Clauses scanned", value: String(document ? document.clauseFindings.length : canRenderDemo ? 216 : 0), icon: FileText, progress: document ? progressFromCount(document.clauseFindings.length, 8) : canRenderDemo ? 100 : 15 },
+    { label: "Risks detected", value: String(document ? document.riskFindings.length : canRenderDemo ? 7 : 0), icon: AlertTriangle, progress: document ? progressFromCount(document.riskFindings.length, 8) : canRenderDemo ? 70 : 15 },
+    { label: "Summary generated", value: document ? (document.summary ? "Yes" : "No") : canRenderDemo ? "Yes" : "Pending", icon: Sparkles, progress: document?.summary === null ? 20 : canRenderDemo ? 100 : 15 },
     { label: "Confidence", value: `${averageConfidence(document)}%`, icon: ShieldCheck, progress: averageConfidence(document) },
     { label: "Processing time", value: processingTime(document), icon: Timer, progress: 62 },
     { label: "Analysis job", value: document?.currentAnalysisJob?.status ? titleCase(document.currentAnalysisJob.status) : "Complete", icon: Bot, progress: 100 },
     { label: "Report status", value: document?.reports[0]?.status ? titleCase(document.reports[0].status) : "Export ready", icon: BadgeCheck, progress: 100 },
     { label: "Chat sessions", value: String(document ? document.chatSessions.length : 1), icon: MessageSquareText, progress: document ? progressFromCount(document.chatSessions.length, 4) : 100 }
   ];
+
+  if ((isRealDocumentMode || !hasResolvedMode) && isLoading) {
+    return (
+      <DashboardShell>
+        <div className="mx-auto flex min-h-[60vh] max-w-[960px] items-center justify-center">
+          <div className="w-full rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-8 text-center shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#D9B76E]" aria-hidden="true" />
+            <h1 className="mt-5 text-2xl font-bold text-foreground">Loading real analysis</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">Fetching the report generated from your uploaded document.</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (isRealDocumentMode && loadError) {
+    return (
+      <DashboardShell>
+        <div className="mx-auto flex min-h-[60vh] max-w-[960px] items-center justify-center">
+          <div className="w-full rounded-2xl border border-[#D66A5E]/40 bg-[#121817]/95 p-8 text-center shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+            <AlertTriangle className="mx-auto h-8 w-8 text-[#E89A92]" aria-hidden="true" />
+            <h1 className="mt-5 text-2xl font-bold text-foreground">Could not load real analysis</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{loadError}</p>
+            <Button type="button" className="mt-6" onClick={() => setRetryCount((value) => value + 1)}>
+              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>
@@ -485,6 +563,7 @@ export default function DemoAnalysisPage() {
                     {isLoading ? "Loading analysis" : documentStatus}
                   </StatusBadge>
                   {isFallback ? <StatusBadge tone="warning">Backend unavailable — showing demo analysis</StatusBadge> : null}
+                  {document ? <StatusBadge tone={fallbackUsed ? "warning" : "info"}>{analysisSourceLabel}</StatusBadge> : null}
                   <StatusBadge tone="info">{document?.description ?? "Commercial / Privacy"}</StatusBadge>
                   <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-[#2C3632] bg-[#151C19] px-3 py-1 text-xs font-medium text-muted-foreground">
                     <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -513,6 +592,14 @@ export default function DemoAnalysisPage() {
                     Export report
                   </Link>
                 </Button>
+                {document?.id ? (
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
+                    <Link href={clauseReviewHref} aria-label="Review extracted clauses">
+                      <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
+                      Review Clauses
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
           </section>
@@ -631,15 +718,14 @@ export default function DemoAnalysisPage() {
                       </div>
                       <h3 className="mt-5 text-xl font-semibold leading-tight text-foreground">{clause.title}</h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">{clause.summary}</p>
-                      <button
-                        suppressHydrationWarning
-                        type="button"
+                      <Link
+                        href={clauseReviewHref}
                         className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#D9B76E] transition duration-150 ease-out hover:text-[#F0D89B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         aria-label={`Review ${clause.title} clause`}
                       >
                         Review clause
                         <ArrowRight className="h-4 w-4 transition duration-150 ease-out group-hover:translate-x-1" aria-hidden="true" />
-                      </button>
+                      </Link>
                     </article>
                   );
                   })}
@@ -706,8 +792,21 @@ export default function DemoAnalysisPage() {
                       </span>
                       <div>
                         <h3 className="text-lg font-semibold leading-tight text-foreground">{recommendation.title}</h3>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {recommendation.severity ? <StatusBadge tone={riskToneFromLevel(recommendation.severity)}>{recommendation.severity} risk</StatusBadge> : null}
+                          {recommendation.method ? <StatusBadge tone={recommendation.method === "MOCK" ? "warning" : "info"}>{recommendation.method}</StatusBadge> : null}
+                        </div>
                         <p className="mt-3 text-sm font-semibold text-[#F5F5EF]">What to change</p>
                         <p className="mt-1 text-sm leading-6 text-muted-foreground">{recommendation.change}</p>
+                        {recommendation.linkedRisk || recommendation.linkedClause ? (
+                          <>
+                            <p className="mt-3 text-sm font-semibold text-[#F5F5EF]">Linked context</p>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                              {recommendation.linkedRisk ? `Risk: ${recommendation.linkedRisk}. ` : ""}
+                              {recommendation.linkedClause ? `Clause: ${recommendation.linkedClause}.` : ""}
+                            </p>
+                          </>
+                        ) : null}
                         <p className="mt-3 text-sm font-semibold text-[#F5F5EF]">Why it matters</p>
                         <p className="mt-1 text-sm leading-6 text-muted-foreground">{recommendation.why}</p>
                       </div>
@@ -753,6 +852,14 @@ export default function DemoAnalysisPage() {
                     Export report
                   </Link>
                 </Button>
+                {document?.id ? (
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={clauseReviewHref} aria-label="Review clauses from action panel">
+                      <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
+                      Review Clauses
+                    </Link>
+                  </Button>
+                ) : null}
                 <Button asChild variant="ghost" className="w-full">
                   <Link href="/upload" aria-label="Upload another document">
                     <RefreshCw className="mr-2 h-5 w-5" aria-hidden="true" />

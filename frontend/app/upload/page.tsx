@@ -28,22 +28,24 @@ import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ApiClientError, postJson, uploadFile } from "@/lib/api-client";
+import { ApiClientError, postAnalyze, postJson, uploadFile } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 const allowedExtensions = [".pdf", ".docx", ".png", ".jpg", ".jpeg"];
 const maxFileSize = 20 * 1024 * 1024;
 
 const processingSteps = [
-  { label: "Preparing document", icon: FileText },
   { label: "Uploading file", icon: UploadCloud },
-  { label: "Running mock review", icon: Sparkles },
+  { label: "Extracting text", icon: ScanText },
+  { label: "Mapping clauses", icon: ClipboardList },
+  { label: "Detecting risks", icon: ShieldQuestion },
+  { label: "Creating report", icon: Sparkles },
   { label: "Opening analysis report", icon: CheckCircle2 }
 ];
 
 const tips = [
   "Use the final executed contract for the most accurate clause map.",
-  "Scanned PDFs and screenshots are accepted for this mock flow.",
+  "Scanned PDFs and screenshots are accepted; OCR support may depend on the backend.",
   "LexAI stores uploads in the local backend MVP storage when available."
 ];
 
@@ -92,6 +94,14 @@ type AnalysisResult = {
   documentId: string;
   status: string;
   reportId: string;
+  extractionStatus?: string;
+  clauseExtractionStatus?: string;
+  riskDetectionStatus?: string;
+  realClauseCount?: number;
+  mockClauseCount?: number;
+  realRiskCount?: number;
+  mockRiskCount?: number;
+  fallbackUsed?: boolean;
 };
 
 function formatFileSize(size: number) {
@@ -110,7 +120,11 @@ function titleFromFileName(fileName: string) {
 }
 
 function isBackendUnavailable(error: unknown) {
-  return error instanceof ApiClientError && (error.status === 0 || error.code === "NETWORK_ERROR" || error.code === "CONFIG_MISSING");
+  return error instanceof ApiClientError && (error.code === "NETWORK_ERROR" || error.code === "CONFIG_MISSING");
+}
+
+function isRequestTimeout(error: unknown) {
+  return error instanceof ApiClientError && error.code === "REQUEST_TIMEOUT";
 }
 
 function sleep(durationMs: number) {
@@ -180,7 +194,7 @@ export default function UploadPage() {
     }
 
     if (phase === "ready") {
-      return "Mock report ready";
+      return "Analysis report ready";
     }
 
     return "Awaiting contract file";
@@ -239,6 +253,28 @@ export default function UploadPage() {
     router.push("/contracts/demo-analysis");
   }
 
+  function startAnalyzeProgress() {
+    const plannedSteps = [
+      { step: 1, progress: 52 },
+      { step: 2, progress: 66 },
+      { step: 3, progress: 78 },
+      { step: 4, progress: 88 }
+    ];
+    let index = 0;
+
+    setPhase("processing");
+    setActiveStep(plannedSteps[0]?.step ?? 1);
+    setProgress(plannedSteps[0]?.progress ?? 52);
+
+    return window.setInterval(() => {
+      index = Math.min(index + 1, plannedSteps.length - 1);
+      const next = plannedSteps[index];
+      if (!next) return;
+      setActiveStep(next.step);
+      setProgress(next.progress);
+    }, shouldReduceMotion ? 1200 : 4500);
+  }
+
   async function startUpload() {
     if (!selectedFile || error) {
       return;
@@ -257,7 +293,7 @@ export default function UploadPage() {
 
     try {
       setActiveStep(0);
-      setProgress(12);
+      setProgress(18);
       const document =
         createdDocumentId.length > 0
           ? { id: createdDocumentId }
@@ -268,27 +304,30 @@ export default function UploadPage() {
       setCreatedDocumentId(document.id);
 
       setActiveStep(1);
-      setProgress(42);
+      setProgress(34);
       await uploadFile<UploadedDocumentFile>(`/documents/${document.id}/upload`, selectedRealFile);
 
-      setActiveStep(2);
-      setProgress(72);
-      await postJson<AnalysisResult>(`/documents/${document.id}/analyze`, { mode: "standard" });
+      const progressTimer = startAnalyzeProgress();
+      const analysis = await postAnalyze<AnalysisResult>(`/documents/${document.id}/analyze`, { mode: "standard" }).finally(() => {
+        window.clearInterval(progressTimer);
+      });
 
-      setActiveStep(3);
+      setActiveStep(5);
       setProgress(100);
       setPhase("ready");
       await sleep(shouldReduceMotion ? 80 : 260);
-      router.push(`/contracts/demo-analysis?documentId=${document.id}`);
+      router.push(`/contracts/demo-analysis?documentId=${analysis.documentId || document.id}${analysis.reportId ? `&reportId=${analysis.reportId}` : ""}`);
     } catch (uploadError) {
-      if (isBackendUnavailable(uploadError) && !createdDocumentId) {
+      if (isBackendUnavailable(uploadError)) {
         await runFrontendDemoFallback();
         return;
       }
 
       const rejected = uploadError instanceof ApiClientError && uploadError.code === "UPLOAD_REJECTED";
       setError(
-        rejected
+        isRequestTimeout(uploadError)
+          ? "Analysis is still taking longer than expected. Please try again or check backend logs."
+          : rejected
           ? "Upload rejected. Please upload a PDF, DOCX, PNG, JPG, or JPEG under 20MB."
           : uploadError instanceof Error
             ? uploadError.message

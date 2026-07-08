@@ -28,13 +28,16 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
-import { safeFetch, safeFetchPaginated } from "@/lib/api-client";
-import type { ReportDetail, ReportListItem } from "@/types/api";
+import { downloadBlob, postJson, safeFetch, safeFetchPaginated } from "@/lib/api-client";
+import type { ExportJobDetail, ReportDetail, ReportListItem } from "@/types/api";
 
 type ReportContent = {
   executiveSummary?: string;
   riskScore?: number;
   riskLevel?: string;
+  riskScoreExplanation?: string;
+  sourceType?: string;
+  fallbackUsed?: boolean;
   metrics?: {
     clausesScanned?: number;
     risksDetected?: number;
@@ -43,7 +46,12 @@ type ReportContent = {
   };
   heatmap?: Array<{ label: string; value: number; signal: string }>;
   findings?: Array<{ title: string; severity: string; finding: string; action: string }>;
-  recommendedRedlines?: Array<{ title: string; change: string; why: string; priority: string }>;
+  topRisks?: Array<{ title: string; severity: string; finding: string; action: string; detectionMethod?: string; ruleId?: string | null; linkedClauseTitle?: string | null }>;
+  affectedClauses?: Array<{ title: string; category: string; summary?: string; excerpt?: string; confidence?: number; extractionMethod?: string; linkedRiskTitles?: string[] }>;
+  recommendedActions?: Array<{ title: string; description: string; priority: number; linkedRiskTitle?: string | null; linkedClauseTitle?: string | null }>;
+  recommendedRedlines?: Array<{ title: string; change: string; why: string; priority: string; linkedRiskTitle?: string | null; linkedClauseTitle?: string | null }>;
+  negotiationChecklist?: string[];
+  legalDisclaimer?: string;
 };
 
 const fallbackHeatmapCells = [
@@ -154,7 +162,7 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "low" | "m
 }
 
 function riskTone(risk: string) {
-  if (risk === "High") {
+  if (risk === "High" || risk === "Critical") {
     return "high";
   }
 
@@ -178,6 +186,24 @@ function titleCase(value: string) {
     .replaceAll("_", " ")
     .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function clauseIconFor(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes("payment") || normalized.includes("fee") || normalized.includes("billing")) {
+    return WalletCards;
+  }
+
+  if (normalized.includes("termination") || normalized.includes("law") || normalized.includes("dispute")) {
+    return Gavel;
+  }
+
+  if (normalized.includes("privacy") || normalized.includes("data") || normalized.includes("security")) {
+    return LockKeyhole;
+  }
+
+  return Scale;
 }
 
 function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description?: string; id: string }) {
@@ -215,35 +241,60 @@ function RiskScoreRing({ score = 74 }: { score?: number }) {
 
 export default function DemoReportPage() {
   const [exportMessage, setExportMessage] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [latestExport, setLatestExport] = useState<ExportJobDetail | null>(null);
   const [shareVisible, setShareVisible] = useState(false);
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFallback, setIsFallback] = useState(false);
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [hasResolvedMode, setHasResolvedMode] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
 
     async function loadReport() {
+      const requestedReportId = new URLSearchParams(window.location.search).get("reportId");
+      if (!isMounted) return;
+
+      setReportId(requestedReportId);
+      setHasResolvedMode(true);
       setIsLoading(true);
+      setLoadError("");
+      setIsFallback(false);
 
       try {
-        const requestedReportId = new URLSearchParams(window.location.search).get("reportId");
-        const reportId = requestedReportId ?? (await safeFetchPaginated<ReportListItem>("/reports")).data[0]?.id;
+        const reportId =
+          requestedReportId ??
+          (await safeFetchPaginated<ReportListItem>("/reports", {
+            signal: controller.signal
+          })).data[0]?.id;
 
         if (!reportId) {
           throw new Error("No backend reports are available.");
         }
 
-        const reportDetail = await safeFetch<ReportDetail>(`/reports/${reportId}`);
+        const reportDetail = await safeFetch<ReportDetail>(`/reports/${reportId}`, {
+          signal: controller.signal
+        });
 
         if (isMounted) {
           setReport(reportDetail);
           setIsFallback(false);
         }
-      } catch {
+      } catch (error) {
         if (isMounted) {
           setReport(null);
-          setIsFallback(true);
+          if (requestedReportId) {
+            setLoadError(error instanceof Error ? error.message : "Unable to load the real report.");
+            setIsFallback(false);
+          } else {
+            setIsFallback(true);
+          }
         }
       } finally {
         if (isMounted) {
@@ -252,37 +303,147 @@ export default function DemoReportPage() {
       }
     }
 
-    loadReport();
+    void loadReport();
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
-  }, []);
+  }, [retryCount]);
 
+  const isRealReportMode = Boolean(reportId);
+  const canRenderDemo = hasResolvedMode && !isRealReportMode && isFallback;
   const content = useMemo<ReportContent>(() => (isReportContent(report?.content) ? report.content : {}), [report]);
-  const riskScore = content.riskScore ?? report?.riskScoreSnapshot ?? report?.document.riskScore ?? 74;
+  const riskScore = content.riskScore ?? report?.riskScoreSnapshot ?? report?.document.riskScore ?? (canRenderDemo ? 74 : 0);
   const riskLevel = content.riskLevel ?? (riskScore >= 80 ? "High" : riskScore >= 50 ? "Medium" : "Low");
-  const heatmapCells = content.heatmap?.length ? content.heatmap : fallbackHeatmapCells;
-  const findings = content.findings?.length ? content.findings : fallbackFindings;
-  const redlines = content.recommendedRedlines?.length ? content.recommendedRedlines : fallbackRedlines;
+  const sourceLabel = content.sourceType ?? (content.fallbackUsed ? "MOCK fallback" : report ? "RULE_BASED report" : "Demo report");
+  const heatmapCells = content.heatmap?.length ? content.heatmap : canRenderDemo ? fallbackHeatmapCells : [];
+  const findings = content.topRisks?.length
+    ? content.topRisks.map((risk) => ({
+        title: risk.title,
+        severity: risk.severity,
+        finding: `${risk.finding}${risk.ruleId ? ` Rule: ${risk.ruleId}.` : ""}${risk.detectionMethod ? ` Source: ${risk.detectionMethod}.` : ""}${risk.linkedClauseTitle ? ` Clause: ${risk.linkedClauseTitle}.` : ""}`,
+        action: risk.action
+      }))
+    : content.findings?.length
+      ? content.findings
+      : canRenderDemo
+        ? fallbackFindings
+        : [];
+  const redlines = content.recommendedRedlines?.length
+    ? content.recommendedRedlines
+    : content.recommendedActions?.length
+      ? content.recommendedActions.map((action) => ({
+          title: action.title,
+          change: action.description,
+          why: [action.linkedRiskTitle ? `Risk: ${action.linkedRiskTitle}.` : "", action.linkedClauseTitle ? `Clause: ${action.linkedClauseTitle}.` : ""].filter(Boolean).join(" ") || "This action reduces contract risk before signature.",
+          priority: String(action.priority)
+        }))
+      : canRenderDemo
+        ? fallbackRedlines
+        : [];
+  const reportClauses = content.affectedClauses?.length
+    ? content.affectedClauses.map((clause) => ({
+        title: clause.title,
+        status: clause.extractionMethod ?? "RULE_BASED",
+        risk: clause.linkedRiskTitles?.length ? "High" : "Medium",
+        summary: clause.summary ?? clause.excerpt ?? "Clause extracted from the analyzed document.",
+        icon: clauseIconFor(`${clause.category} ${clause.title}`),
+        linkedRiskTitles: clause.linkedRiskTitles ?? []
+      }))
+    : canRenderDemo
+      ? clauses.map((clause) => ({ ...clause, linkedRiskTitles: [] }))
+      : [];
+  const negotiationChecklist = content.negotiationChecklist?.length
+    ? content.negotiationChecklist
+    : redlines.map((redline) => `${redline.priority} priority: ${redline.title}`);
+  const clauseReviewHref = report?.documentId ? `/contracts/${report.documentId}/clauses` : "/contracts/demo-analysis";
   const processingDetails = [
-    { label: "Model mode", value: isFallback ? "Legal analysis mock" : "Backend snapshot", icon: Bot, progress: 100 },
-    { label: "Confidence", value: `${content.metrics?.confidence ?? 91}%`, icon: ShieldCheck, progress: content.metrics?.confidence ?? 91 },
-    { label: "Clauses scanned", value: String(content.metrics?.clausesScanned ?? 216), icon: FileText, progress: 100 },
-    { label: "Risks detected", value: String(content.metrics?.risksDetected ?? 7), icon: AlertTriangle, progress: Math.min(100, (content.metrics?.risksDetected ?? 7) * 10) },
+    { label: "Finding source", value: isFallback ? "Frontend demo" : sourceLabel, icon: Bot, progress: 100 },
+    { label: "Confidence", value: `${content.metrics?.confidence ?? (canRenderDemo ? 91 : 0)}%`, icon: ShieldCheck, progress: content.metrics?.confidence ?? (canRenderDemo ? 91 : 0) },
+    { label: "Clauses scanned", value: String(content.metrics?.clausesScanned ?? (canRenderDemo ? 216 : 0)), icon: FileText, progress: 100 },
+    { label: "Risks detected", value: String(content.metrics?.risksDetected ?? (canRenderDemo ? 7 : 0)), icon: AlertTriangle, progress: Math.min(100, (content.metrics?.risksDetected ?? 0) * 10) },
     { label: "Summary generated", value: "Yes", icon: Sparkles, progress: 100 },
     { label: "Export status", value: report?.exportJobs[0]?.status ? titleCase(report.exportJobs[0].status) : "Ready", icon: BadgeCheck, progress: 100 },
     { label: "Data handling", value: isFallback ? "Local frontend demo" : "Read-only API", icon: LockKeyhole, progress: 100 }
   ];
   const chatHref = report?.documentId ? `/ai-chat?documentId=${report.documentId}` : "/ai-chat";
 
-  function prepareExport() {
-    setExportMessage("Mock PDF export prepared.");
-    window.setTimeout(() => setExportMessage(""), 3200);
+  async function prepareExport() {
+    setExportError("");
+    setExportMessage("");
+
+    if (!report?.id) {
+      setExportMessage("Demo export is not connected to a backend report.");
+      window.setTimeout(() => setExportMessage(""), 3200);
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const exportJob = await postJson<ExportJobDetail>(`/reports/${report.id}/export`, { format: "PDF" }, {
+        timeoutMs: 90_000,
+        timeoutMessage: "PDF export is taking longer than expected."
+      });
+      setLatestExport(exportJob);
+
+      if (exportJob.status !== "COMPLETED" || !exportJob.downloadUrl) {
+        throw new Error(exportJob.errorMessage ?? "PDF export did not complete.");
+      }
+
+      const blob = await downloadBlob(`/exports/${exportJob.id}/download`, {
+        timeoutMs: 90_000,
+        timeoutMessage: "PDF download is taking longer than expected."
+      });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = window.document.createElement("a");
+      anchor.href = url;
+      anchor.download = exportJob.fileName ?? `${report.title.replace(/\s+/g, "-").toLowerCase()}.pdf`;
+      window.document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+      setExportMessage(`${exportJob.fileName ?? "PDF report"} downloaded.`);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Unable to export this report.");
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   function shareReport() {
     setShareVisible(true);
+  }
+
+  if ((isRealReportMode || !hasResolvedMode) && isLoading) {
+    return (
+      <DashboardShell>
+        <div className="mx-auto flex min-h-[60vh] max-w-[960px] items-center justify-center">
+          <div className="w-full rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-8 text-center shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+            <Clock3 className="mx-auto h-8 w-8 animate-spin text-[#D9B76E]" aria-hidden="true" />
+            <h1 className="mt-5 text-2xl font-bold text-foreground">Loading real report</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">Fetching the report generated from your uploaded document.</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (isRealReportMode && loadError) {
+    return (
+      <DashboardShell>
+        <div className="mx-auto flex min-h-[60vh] max-w-[960px] items-center justify-center">
+          <div className="w-full rounded-2xl border border-[#D66A5E]/40 bg-[#121817]/95 p-8 text-center shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+            <AlertTriangle className="mx-auto h-8 w-8 text-[#E89A92]" aria-hidden="true" />
+            <h1 className="mt-5 text-2xl font-bold text-foreground">Could not load real report</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{loadError}</p>
+            <Button type="button" className="mt-6" onClick={() => setRetryCount((value) => value + 1)}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   return (
@@ -304,7 +465,7 @@ export default function DemoReportPage() {
                   <BadgeCheck className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
                   {report?.status ? titleCase(report.status) : "Export ready"}
                 </Badge>
-                <Badge tone={isFallback ? "ai" : "info"}>{isFallback ? "Backend unavailable — showing demo data" : isLoading ? "Loading report" : "Backend report"}</Badge>
+                <Badge tone={isFallback || content.fallbackUsed ? "ai" : "info"}>{isFallback ? "Backend unavailable — showing demo data" : isLoading ? "Loading report" : sourceLabel}</Badge>
                 <span className="inline-flex min-h-7 items-center gap-2 rounded-full border border-[#2C3632] bg-[#151C19] px-3 py-1 text-xs font-medium text-muted-foreground">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
                   Generated: {report?.createdAt ? formatDate(report.createdAt) : "Just now"}
@@ -320,9 +481,9 @@ export default function DemoReportPage() {
             </div>
 
             <div className="relative flex w-full flex-col gap-3 sm:w-auto sm:min-w-[220px]">
-              <Button onClick={prepareExport} className="w-full" aria-label="Download mock PDF report">
-                <Download className="mr-2 h-5 w-5" aria-hidden="true" />
-                Download PDF
+              <Button onClick={prepareExport} disabled={isExporting} className="w-full" aria-label="Export PDF report">
+                {isExporting ? <Clock3 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> : <Download className="mr-2 h-5 w-5" aria-hidden="true" />}
+                {isExporting ? "Exporting PDF" : "Export PDF"}
               </Button>
               <Button onClick={shareReport} variant="outline" className="w-full" aria-label="Share mock report">
                 <Share2 className="mr-2 h-5 w-5" aria-hidden="true" />
@@ -334,6 +495,14 @@ export default function DemoReportPage() {
                   Ask about report
                 </Link>
               </Button>
+              {report?.documentId ? (
+                <Button asChild variant="outline" className="w-full">
+                  <Link href={clauseReviewHref} aria-label="Review clauses from this report">
+                    <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
+                    Review Clauses
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -341,6 +510,13 @@ export default function DemoReportPage() {
             <div className="relative mt-5 flex items-center gap-3 rounded-xl border border-[#A7C957]/35 bg-[#A7C957]/10 px-4 py-3 text-sm font-medium text-[#D7E8A5] motion-safe:animate-[lexai-section-in_220ms_ease-out]" role="status">
               <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
               {exportMessage}
+            </div>
+          ) : null}
+
+          {exportError ? (
+            <div className="relative mt-5 flex items-center gap-3 rounded-xl border border-[#D66A5E]/40 bg-[#D66A5E]/10 px-4 py-3 text-sm font-medium text-[#E89A92] motion-safe:animate-[lexai-section-in_220ms_ease-out]" role="alert">
+              <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              {exportError}
             </div>
           ) : null}
 
@@ -387,6 +563,7 @@ export default function DemoReportPage() {
                     <div className="min-w-0">
                       <Badge tone={riskTone(riskLevel)}>{riskLevel} risk</Badge>
                       <p className="mt-4 text-2xl font-bold leading-tight text-foreground">{riskScore} / 100</p>
+                      {content.riskScoreExplanation ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{content.riskScoreExplanation}</p> : null}
                       <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         {[
                           ["Risks detected", String(content.metrics?.risksDetected ?? 7)],
@@ -408,23 +585,30 @@ export default function DemoReportPage() {
                     <h3 className="text-xl font-semibold leading-tight text-foreground">Risk heatmap</h3>
                     <Badge tone="info">6 categories</Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {heatmapCells.map((cell) => (
+                  {heatmapCells.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {heatmapCells.map((cell) => (
                       <div key={cell.label} className={`min-h-24 rounded-xl border p-3 ${cell.signal === "high" ? "border-[#D66A5E]/45 bg-[#D66A5E]/15 text-[#E89A92]" : cell.signal === "low" ? "border-[#A7C957]/35 bg-[#A7C957]/10 text-[#D7E8A5]" : "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]"}`}>
                         <p className="text-xs font-medium text-current">{cell.label}</p>
                         <p className="mt-4 text-2xl font-bold leading-none text-foreground">{cell.value}</p>
                         <p className="mt-1 text-xs font-medium text-current">{cell.signal} signal</p>
                       </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-[#2C3632] bg-[#151C19] p-4 text-sm leading-6 text-muted-foreground">
+                      No risk heatmap data was generated for this report.
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
 
             <section aria-labelledby="key-findings-title">
               <SectionHeading id="key-findings-title" eyebrow="Key findings" title="Main legal issues" description="Findings are prioritized by severity and recommended negotiation impact." />
-              <div className="grid gap-4 md:grid-cols-2">
-                {findings.map((finding) => (
+              {findings.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {findings.map((finding) => (
                   <article key={finding.title} className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[#D9B76E]/45">
                     <div className="flex items-start justify-between gap-4">
                       <h3 className="text-xl font-semibold leading-tight text-foreground">{finding.title}</h3>
@@ -437,14 +621,20 @@ export default function DemoReportPage() {
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.action}</p>
                     </div>
                   </article>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 text-sm leading-6 text-muted-foreground">
+                  No risk findings were stored for this report.
+                </div>
+              )}
             </section>
 
             <section aria-labelledby="clause-review-title">
-              <SectionHeading id="clause-review-title" eyebrow="Clause review" title="Structured clause assessment" description="Each clause has a status, risk level, and plain-language review summary." />
-              <div className="grid gap-4 md:grid-cols-2">
-                {clauses.map((clause) => {
+              <SectionHeading id="clause-review-title" eyebrow="Affected clauses" title="Clauses tied to the findings" description="For real reports, this section shows extracted clauses linked to rule-based risks." />
+              {reportClauses.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {reportClauses.map((clause) => {
                   const Icon = clause.icon;
 
                   return (
@@ -460,16 +650,27 @@ export default function DemoReportPage() {
                       </div>
                       <h3 className="mt-5 text-xl font-semibold leading-tight text-foreground">{clause.title}</h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">{clause.summary}</p>
+                      {clause.linkedRiskTitles.length > 0 ? (
+                        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#D9B76E]">
+                          Linked risks: {clause.linkedRiskTitles.join(", ")}
+                        </p>
+                      ) : null}
                     </article>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 text-sm leading-6 text-muted-foreground">
+                  No affected clauses were stored for this report.
+                </div>
+              )}
             </section>
 
             <section aria-labelledby="redlines-title">
               <SectionHeading id="redlines-title" eyebrow="Recommended redlines" title="Action-oriented negotiation changes" description="These recommendations show how an exportable report will guide next steps." />
-              <div className="space-y-4">
-                {redlines.map((redline) => (
+              {redlines.length > 0 ? (
+                <div className="space-y-4">
+                  {redlines.map((redline) => (
                   <article key={redline.title} className="rounded-2xl border border-[#A7C957]/25 bg-[#121817]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 gap-3">
@@ -487,7 +688,30 @@ export default function DemoReportPage() {
                       <Badge tone={redline.priority === "High" ? "high" : "medium"}>{redline.priority} priority</Badge>
                     </div>
                   </article>
-                ))}
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 text-sm leading-6 text-muted-foreground">
+                  No recommendations were stored for this report.
+                </div>
+              )}
+            </section>
+
+            <section aria-labelledby="checklist-title">
+              <SectionHeading id="checklist-title" eyebrow="Negotiation checklist" title="Issues to resolve before signature" description="Use this as a practical handoff list for counsel or the business owner." />
+              <div className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                {negotiationChecklist.length > 0 ? (
+                  <div className="space-y-3">
+                    {negotiationChecklist.map((item) => (
+                    <div key={item} className="flex gap-3 text-sm leading-6 text-muted-foreground">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#D7E8A5]" aria-hidden="true" />
+                      <p>{item}</p>
+                    </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-6 text-muted-foreground">No negotiation checklist was generated for this report.</p>
+                )}
               </div>
             </section>
           </main>
@@ -504,9 +728,9 @@ export default function DemoReportPage() {
                 </div>
               </div>
               <div className="mt-5 grid gap-3">
-                <Button onClick={prepareExport} className="w-full" aria-label="Download mock PDF from status panel">
-                  <Download className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Download PDF
+                <Button onClick={prepareExport} disabled={isExporting} className="w-full" aria-label="Export PDF from status panel">
+                  {isExporting ? <Clock3 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> : <Download className="mr-2 h-5 w-5" aria-hidden="true" />}
+                  {isExporting ? "Exporting PDF" : "Export PDF"}
                 </Button>
                 <Button onClick={shareReport} variant="outline" className="w-full" aria-label="Share mock report from status panel">
                   <Send className="mr-2 h-5 w-5" aria-hidden="true" />
@@ -518,6 +742,19 @@ export default function DemoReportPage() {
                     Ask about report
                   </Link>
                 </Button>
+                {report?.documentId ? (
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={clauseReviewHref} aria-label="Review clauses from report status panel">
+                      <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
+                      Review Clauses
+                    </Link>
+                  </Button>
+                ) : null}
+                {latestExport?.status === "COMPLETED" ? (
+                  <div className="rounded-xl border border-[#A7C957]/30 bg-[#A7C957]/10 p-3 text-sm leading-6 text-muted-foreground">
+                    <span className="font-semibold text-[#D7E8A5]">Last export:</span> {latestExport.fileName ?? latestExport.id}
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -555,7 +792,7 @@ export default function DemoReportPage() {
               <div className="flex items-start gap-3">
                 <Scale className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm leading-6 text-muted-foreground">
-                  LexAI review output does not replace professional legal advice.
+                  {content.legalDisclaimer ?? "LexAI review output does not replace professional legal advice."}
                 </p>
               </div>
             </section>

@@ -19,8 +19,8 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
-import { safeFetch, safeFetchPaginated } from "@/lib/api-client";
-import type { ChatSessionDetail, DocumentDetail, DocumentListItem } from "@/types/api";
+import { postJson, safeFetch } from "@/lib/api-client";
+import type { ChatCitation, ChatMessageCreateResult, ChatSessionDetail, ChatSessionListItem, DocumentDetail } from "@/types/api";
 
 const suggestedQuestions = [
   "What should I negotiate first?",
@@ -80,6 +80,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  references?: ChatCitation[];
   clause?: {
     title: string;
     severity: string;
@@ -99,6 +100,64 @@ function toneClasses(tone: string) {
   }
 
   return "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]";
+}
+
+function metadataObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function parseCitations(value: unknown): ChatCitation[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item): ChatCitation | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const citation = item as Record<string, unknown>;
+      if (typeof citation.title !== "string" || typeof citation.label !== "string" || typeof citation.excerpt !== "string") {
+        return null;
+      }
+
+      return {
+        type: typeof citation.type === "string" ? citation.type : "REFERENCE",
+        title: citation.title,
+        label: citation.label,
+        excerpt: citation.excerpt,
+        score: typeof citation.score === "number" ? citation.score : undefined,
+        metadata: metadataObject(citation.metadata) as Record<string, string | number | null>
+      } satisfies ChatCitation;
+    })
+    .filter((citation): citation is ChatCitation => Boolean(citation));
+}
+
+function messageFromApi(message: ChatSessionDetail["messages"][number]): ChatMessage {
+  const metadata = metadataObject(message.metadata);
+  const references = parseCitations(message.citations);
+  const firstReference = references[0];
+  const severity =
+    typeof firstReference?.metadata?.riskLevel === "string"
+      ? `${firstReference.metadata.riskLevel.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())} risk`
+      : firstReference?.label;
+
+  return {
+    id: message.id,
+    role: message.role.toLowerCase() === "user" ? "user" : "assistant",
+    text: message.content,
+    references,
+    clause: firstReference
+      ? {
+          title: firstReference.title,
+          severity: severity ?? firstReference.type,
+          action: firstReference.excerpt
+        }
+      : undefined,
+    confidence: references.length > 0 ? Math.min(95, 78 + references.length * 3) : undefined,
+    nextQuestion: typeof metadata.nextQuestion === "string" ? metadata.nextQuestion : undefined
+  };
 }
 
 function mockResponseFor(prompt: string, id: string): ChatMessage {
@@ -241,8 +300,32 @@ function ClauseReference({ message }: { message: ChatMessage }) {
   );
 }
 
+function ReferenceList({ references }: { references?: ChatCitation[] }) {
+  if (!references || references.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-[#2C3632]/80 bg-[#0B0F0E]/70 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#D9B76E]">References</p>
+      <div className="mt-2 space-y-2">
+        {references.slice(0, 5).map((reference, index) => (
+          <div key={`${reference.type}-${reference.title}-${index}`} className="border-t border-[#2C3632]/60 pt-2 first:border-t-0 first:pt-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={reference.type === "RISK" ? "high" : reference.type === "CLAUSE" ? "info" : "medium"}>{reference.type}</StatusBadge>
+              <p className="text-sm font-semibold text-foreground">{reference.title}</p>
+            </div>
+            <p className="mt-1 text-xs font-medium text-[#F0D89B]">{reference.label}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{reference.excerpt}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function GroundingLabel({ message }: { message: ChatMessage }) {
-  const label = message.clause ? `References: ${message.clause.title} clause` : "Grounded in uploaded contract";
+  const label = message.references?.[0] ? `References: ${message.references[0].title}` : message.clause ? `References: ${message.clause.title} clause` : "Grounded in uploaded contract";
 
   return (
     <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-[#D9B76E]/25 bg-[#D9B76E]/10 px-2.5 py-1 text-xs font-medium text-[#F0D89B]">
@@ -281,6 +364,7 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
           {!isUser ? (
             <>
               <ClauseReference message={message} />
+              <ReferenceList references={message.references} />
               <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#0B0F0E]/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 text-[#A7C957]" aria-hidden="true" />
@@ -329,67 +413,109 @@ export default function AiChatPage() {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [session, setSession] = useState<ChatSessionDetail | null>(null);
+  const [document, setDocument] = useState<DocumentDetail | null>(null);
+  const [isRealDocumentMode, setIsRealDocumentMode] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [isFallback, setIsFallback] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<HTMLElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasMountedRef = useRef(false);
   const messageIdRef = useRef(3);
 
-  const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
+  const canSend = useMemo(() => input.trim().length > 0 && !isSending && !isLoadingSession && (!isRealDocumentMode || Boolean(session)), [input, isLoadingSession, isRealDocumentMode, isSending, session]);
+  const activeDocument = document ?? session?.document ?? null;
+  const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
+  const displayedReferences = useMemo(() => {
+    const latestReferences = [...messages].reverse().find((message) => message.role === "assistant" && message.references?.length)?.references;
+    if (latestReferences?.length) {
+      return latestReferences.slice(0, 5).map((reference) => ({
+        name: reference.title,
+        detail: reference.label,
+        tone: reference.type === "RISK" ? "high" : reference.type === "CLAUSE" ? "low" : "medium"
+      }));
+    }
+
+    if (isRealDocumentMode && document) {
+      return [
+        ...document.riskFindings.slice(0, 3).map((risk) => ({
+          name: risk.title,
+          detail: `${risk.riskLevel.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())} risk`,
+          tone: risk.riskLevel === "HIGH" || risk.riskLevel === "CRITICAL" ? "high" : risk.riskLevel === "LOW" ? "low" : "medium"
+        })),
+        ...document.clauseFindings.slice(0, 2).map((clause) => ({
+          name: clause.title,
+          detail: clause.category,
+          tone: "low"
+        }))
+      ].slice(0, 5);
+    }
+
+    return referencedClauses;
+  }, [document, isRealDocumentMode, messages]);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function resolveSessionId() {
+    async function resolveSession() {
       const params = new URLSearchParams(window.location.search);
       const directSessionId = params.get("sessionId");
 
       if (directSessionId) {
-        return directSessionId;
+        const sessionDetail = await safeFetch<ChatSessionDetail>(`/chat/sessions/${directSessionId}`);
+        return { sessionDetail, documentDetail: null, realMode: true };
       }
 
       const directDocumentId = params.get("documentId");
-      const documentId = directDocumentId ?? (await safeFetchPaginated<DocumentListItem>("/documents")).data[0]?.id;
-
-      if (!documentId) {
-        return null;
+      if (!directDocumentId) {
+        return { sessionDetail: null, documentDetail: null, realMode: false };
       }
 
-      const document = await safeFetch<DocumentDetail>(`/documents/${documentId}`);
-      return document.chatSessions[0]?.id ?? null;
+      const documentDetail = await safeFetch<DocumentDetail>(`/documents/${directDocumentId}`);
+      const sessions = await safeFetch<ChatSessionListItem[]>(`/documents/${directDocumentId}/chat/sessions`);
+      const sessionDetail = sessions[0]?.id
+        ? await safeFetch<ChatSessionDetail>(`/chat/sessions/${sessions[0].id}`)
+        : await postJson<ChatSessionDetail>(`/documents/${directDocumentId}/chat/sessions`, {
+            title: `${documentDetail.title} Q&A`
+          });
+
+      return { sessionDetail, documentDetail, realMode: true };
     }
 
     async function loadSession() {
       setIsLoadingSession(true);
+      setLoadError("");
 
       try {
-        const sessionId = await resolveSessionId();
-
-        if (!sessionId) {
-          throw new Error("No chat sessions are available.");
-        }
-
-        const sessionDetail = await safeFetch<ChatSessionDetail>(`/chat/sessions/${sessionId}`);
+        const resolved = await resolveSession();
 
         if (isMounted) {
-          const apiMessages = sessionDetail.messages.map((message) => ({
-            id: message.id,
-            role: message.role.toLowerCase() === "user" ? "user" : "assistant",
-            text: message.content
-          })) satisfies ChatMessage[];
+          setIsRealDocumentMode(resolved.realMode);
 
-          setSession(sessionDetail);
-          setMessages(apiMessages.length > 0 ? apiMessages : initialMessages);
+          if (!resolved.realMode || !resolved.sessionDetail) {
+            setSession(null);
+            setDocument(null);
+            setMessages(initialMessages);
+            setIsFallback(false);
+            return;
+          }
+
+          const apiMessages = resolved.sessionDetail.messages.map(messageFromApi);
+
+          setSession(resolved.sessionDetail);
+          setDocument(resolved.documentDetail);
+          setMessages(apiMessages);
           messageIdRef.current = apiMessages.length + 3;
           setIsFallback(false);
         }
-      } catch {
+      } catch (error) {
         if (isMounted) {
           setSession(null);
-          setMessages(initialMessages);
-          setIsFallback(true);
+          setDocument(null);
+          setLoadError(error instanceof Error ? error.message : "Unable to load document chat.");
+          setMessages([]);
+          setIsFallback(false);
         }
       } finally {
         if (isMounted) {
@@ -398,7 +524,7 @@ export default function AiChatPage() {
       }
     }
 
-    loadSession();
+    void loadSession();
 
     return () => {
       isMounted = false;
@@ -414,7 +540,7 @@ export default function AiChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isSending]);
 
-  function sendPrompt(prompt: string) {
+  async function sendPrompt(prompt: string) {
     const cleanedPrompt = prompt.trim();
 
     if (!cleanedPrompt || isSending) {
@@ -435,6 +561,32 @@ export default function AiChatPage() {
     setMessages((currentMessages) => [...currentMessages, userMessage]);
     setInput("");
     setIsSending(true);
+
+    if (isRealDocumentMode && session) {
+      try {
+        const result = await postJson<ChatMessageCreateResult>(`/chat/sessions/${session.id}/messages`, {
+          content: cleanedPrompt
+        });
+        setMessages((currentMessages) => [
+          ...currentMessages.filter((message) => message.id !== userId),
+          messageFromApi(result.userMessage),
+          messageFromApi(result.assistantMessage)
+        ]);
+      } catch (error) {
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: assistantId,
+            role: "assistant",
+            text: error instanceof Error ? error.message : "Unable to send this message to the document-grounded chat service."
+          }
+        ]);
+      } finally {
+        setIsSending(false);
+        inputRef.current?.focus();
+      }
+      return;
+    }
 
     window.setTimeout(() => {
       setMessages((currentMessages) => [...currentMessages, mockResponseFor(cleanedPrompt, assistantId)]);
@@ -466,13 +618,14 @@ export default function AiChatPage() {
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <StatusBadge tone="ai">
                       <Sparkles className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-                      {isFallback ? "Backend unavailable - showing demo data" : isLoadingSession ? "Loading session" : "Review file loaded"}
+                      {isLoadingSession ? "Loading session" : isRealDocumentMode ? "Document-grounded chat" : "Demo chat mode"}
                     </StatusBadge>
-                    <StatusBadge tone="info">{session?.document?.title ?? "Vendor DPA.pdf"}</StatusBadge>
+                    {isFallback ? <StatusBadge tone="medium">Backend unavailable - showing demo data</StatusBadge> : null}
+                    <StatusBadge tone="info">{activeDocument?.title ?? "No document selected"}</StatusBadge>
                   </div>
-                  <h1 className="text-2xl font-bold leading-tight text-foreground">Ask about this contract</h1>
+                  <h1 className="text-2xl font-bold leading-tight text-foreground">{isRealDocumentMode ? "Ask about this contract" : "Demo legal Q&A"}</h1>
                   <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                    Questions are grounded in the current review file.
+                    {isRealDocumentMode ? "Answers use extracted text, clauses, risks, recommendations, and the latest report." : "Try the demo prompts, or open chat from a real analysis page for document-grounded answers."}
                   </p>
                 </div>
                 <div className="rounded-xl border border-[#D9B76E]/25 bg-[#D9B76E]/10 px-3 py-2 text-sm leading-5 text-muted-foreground xl:max-w-[300px] 2xl:max-w-[320px]">
@@ -480,7 +633,7 @@ export default function AiChatPage() {
                     <MessageSquareText className="h-4 w-4" aria-hidden="true" />
                     Legal analyst mode
                   </div>
-                  <p className="mt-1">Grounded in clauses, risk findings, and negotiation actions.</p>
+                  <p className="mt-1">{isRealDocumentMode ? "Grounded in clauses, risk findings, and negotiation actions." : "Demo responses are separate from real document chat."}</p>
                 </div>
               </div>
 
@@ -506,6 +659,16 @@ export default function AiChatPage() {
             </header>
 
             <section ref={historyRef} className="space-y-5 px-4 py-5 sm:px-5 sm:py-6" aria-label="Chat message history">
+              {loadError ? (
+                <div className="rounded-2xl border border-[#D66A5E]/40 bg-[#D66A5E]/10 p-4 text-sm leading-6 text-[#E89A92]">
+                  {loadError}
+                </div>
+              ) : null}
+              {messages.length === 0 && !isLoadingSession && !loadError ? (
+                <div className="rounded-2xl border border-[#2C3632] bg-[#151C19] p-5 text-sm leading-6 text-muted-foreground">
+                  Ask a question about this document to start a grounded Q&A session.
+                </div>
+              ) : null}
               {messages.map((message) => (
                 <ChatBubble key={message.id} message={message} onSuggestedQuestion={sendPrompt} />
               ))}
@@ -528,7 +691,7 @@ export default function AiChatPage() {
                   rows={1}
                   placeholder="Ask about risks, clauses, obligations, or negotiation points..."
                   className="max-h-28 min-h-10 min-w-0 flex-1 resize-none bg-transparent py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isSending}
+                  disabled={isSending || isLoadingSession || Boolean(loadError)}
                 />
                 <Button type="submit" disabled={!canSend} className="h-10 w-10 shrink-0 px-0" aria-label="Send message to LexAI">
                   {isSending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Send className="h-5 w-5" aria-hidden="true" />}
@@ -546,21 +709,21 @@ export default function AiChatPage() {
                 </span>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7E8A86]">Active document</p>
-                  <h2 className="mt-1.5 text-lg font-semibold leading-tight text-foreground">{session?.document?.title ?? "Vendor Data Processing Agreement"}</h2>
+                  <h2 className="mt-1.5 text-lg font-semibold leading-tight text-foreground">{activeDocument?.title ?? "Demo contract"}</h2>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-[#C47A4A]/30 bg-[#C47A4A]/10 p-3">
                   <p className="text-xs font-medium text-[#E4AD89]">Risk</p>
-                  <p className="mt-1.5 text-lg font-semibold text-foreground">{(session?.document?.riskScore ?? 74) >= 80 ? "High" : (session?.document?.riskScore ?? 74) >= 50 ? "Medium" : "Low"}</p>
+                  <p className="mt-1.5 text-lg font-semibold text-foreground">{(activeDocument?.riskScore ?? 74) >= 80 ? "High" : (activeDocument?.riskScore ?? 74) >= 50 ? "Medium" : "Low"}</p>
                 </div>
                 <div className="rounded-xl border border-[#2C3632] bg-[#151C19] p-3">
                   <p className="text-xs font-medium text-muted-foreground">Score</p>
-                  <p className="mt-1.5 text-lg font-semibold text-foreground">{session?.document?.riskScore ?? 74} / 100</p>
+                  <p className="mt-1.5 text-lg font-semibold text-foreground">{activeDocument?.riskScore ?? 74} / 100</p>
                 </div>
               </div>
               <Button asChild variant="outline" className="mt-4 w-full">
-                <Link href="/reports/demo-report">
+                <Link href={reportHref}>
                   <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
                   View report
                 </Link>
@@ -568,9 +731,9 @@ export default function AiChatPage() {
             </section>
 
             <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
-              <h2 className="text-lg font-semibold leading-tight text-foreground">Referenced clauses</h2>
+              <h2 className="text-lg font-semibold leading-tight text-foreground">{isRealDocumentMode ? "Grounding references" : "Referenced clauses"}</h2>
               <div className="mt-3 space-y-2.5">
-                {referencedClauses.map((clause) => (
+                {displayedReferences.map((clause) => (
                   <div key={clause.name} className="flex items-center justify-between gap-3 rounded-xl border border-[#2C3632] bg-[#0B0F0E]/70 px-3 py-2.5">
                     <span className="text-sm font-medium text-foreground">{clause.name}</span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${toneClasses(clause.tone)}`}>{clause.detail}</span>
@@ -591,9 +754,9 @@ export default function AiChatPage() {
               </div>
               <div className="mt-4 space-y-3.5">
                 {[
-                  { label: "Confidence", value: "91%", progress: 91, icon: ShieldCheck },
-                  { label: "Clauses scanned", value: "216", progress: 100, icon: CheckCircle2 },
-                  { label: "Risks detected", value: "7", progress: 70, icon: AlertTriangle }
+                  { label: "References", value: String(displayedReferences.length), progress: Math.min(100, displayedReferences.length * 20), icon: ShieldCheck },
+                  { label: "Clauses scanned", value: String(document?.clauseFindings.length ?? 216), progress: 100, icon: CheckCircle2 },
+                  { label: "Risks detected", value: String(document?.riskFindings.length ?? 7), progress: Math.min(100, (document?.riskFindings.length ?? 7) * 10), icon: AlertTriangle }
                 ].map((item) => {
                   const Icon = item.icon;
 

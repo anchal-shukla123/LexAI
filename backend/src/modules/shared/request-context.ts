@@ -11,95 +11,71 @@ export type RequestContext = BaseContext & {
 };
 
 async function getAuthenticatedContext(userId: string): Promise<RequestContext> {
-  const user = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      deletedAt: null
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      avatarUrl: true,
-      createdAt: true,
-      updatedAt: true
-    }
-  });
+  const [user, memberships] = await Promise.all([
+    prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+        settings: {
+          select: {
+            defaultWorkspaceId: true
+          }
+        }
+      }
+    }),
+    prisma.workspaceMember.findMany({
+      where: {
+        userId,
+        workspace: {
+          deletedAt: null
+        }
+      },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        role: true,
+        joinedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        workspaceId: true,
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        }
+      }
+    })
+  ]);
 
   if (!user) {
     throw new AppError("UNAUTHORIZED", "Invalid or expired access token.");
   }
 
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId: user.id },
-    select: { defaultWorkspaceId: true }
-  });
-
-  const membership = await prisma.workspaceMember.findFirst({
-    where: {
-      userId: user.id,
-      workspace: {
-        deletedAt: null
-      },
-      ...(settings?.defaultWorkspaceId ? { workspaceId: settings.defaultWorkspaceId } : {})
-    },
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      role: true,
-      joinedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      workspace: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          createdAt: true,
-          updatedAt: true
-        }
-      }
-    }
-  });
-
-  const fallbackMembership = membership
-    ? null
-    : await prisma.workspaceMember.findFirst({
-        where: {
-          userId: user.id,
-          workspace: {
-            deletedAt: null
-          }
-        },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          role: true,
-          joinedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          workspace: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              createdAt: true,
-              updatedAt: true
-            }
-          }
-        }
-      });
-
-  const resolvedMembership = membership ?? fallbackMembership;
+  const resolvedMembership =
+    memberships.find((membership) => membership.workspaceId === user.settings?.defaultWorkspaceId) ?? memberships[0];
   if (!resolvedMembership) {
     throw new AppError("CONFLICT", "No workspace found for authenticated user.");
   }
 
   const { workspace, ...membershipWithoutWorkspace } = resolvedMembership;
+  const { settings: _settings, ...userWithoutSettings } = user;
+  void _settings;
 
   return {
     mode: "auth",
-    user,
+    user: userWithoutSettings,
     workspace,
     membership: membershipWithoutWorkspace
   };

@@ -10,6 +10,7 @@ export async function getWorkspaceDashboard(context: RequestContext) {
     documentCount,
     analyzedDocumentCount,
     highRiskCount,
+    riskLevelCounts,
     recentDocuments,
     recentReports,
     recentAuditLogs
@@ -27,6 +28,14 @@ export async function getWorkspaceDashboard(context: RequestContext) {
         riskLevel: { in: [RiskLevel.HIGH, RiskLevel.CRITICAL] }
       }
     }),
+    prisma.riskFinding.groupBy({
+      by: ["riskLevel"],
+      where: {
+        document: { workspaceId, deletedAt: null },
+        detectionMethod: "RULE_BASED"
+      },
+      _count: { _all: true }
+    }),
     prisma.document.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { createdAt: "desc" },
@@ -39,7 +48,20 @@ export async function getWorkspaceDashboard(context: RequestContext) {
         riskScore: true,
         summary: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        files: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            fileName: true,
+            originalName: true,
+            mimeType: true,
+            extension: true,
+            sizeBytes: true,
+            createdAt: true
+          }
+        }
       }
     }),
     prisma.report.findMany({
@@ -50,13 +72,17 @@ export async function getWorkspaceDashboard(context: RequestContext) {
         id: true,
         title: true,
         status: true,
+        documentId: true,
+        summarySnapshot: true,
         riskScoreSnapshot: true,
         createdAt: true,
         updatedAt: true,
         document: {
           select: {
             id: true,
-            title: true
+            title: true,
+            riskScore: true,
+            status: true
           }
         }
       }
@@ -64,7 +90,7 @@ export async function getWorkspaceDashboard(context: RequestContext) {
     prisma.auditLog.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 5,
       select: {
         id: true,
         action: true,
@@ -97,6 +123,12 @@ export async function getWorkspaceDashboard(context: RequestContext) {
     recentDocuments,
     recentReports,
     recentAuditLogs,
+    riskStats: {
+      levels: riskLevelCounts.reduce<Record<string, number>>((accumulator, item) => {
+        accumulator[item.riskLevel] = item._count._all;
+        return accumulator;
+      }, {})
+    },
     currentUser: context.user
   };
 }

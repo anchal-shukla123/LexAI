@@ -242,8 +242,11 @@ export default function DashboardPage() {
     }
 
     let isMounted = true;
+    const controller = new AbortController();
 
-    safeFetch<DashboardData>("/dashboard")
+    safeFetch<DashboardData>("/dashboard", {
+      signal: controller.signal
+    })
       .then((data) => {
         if (!isMounted) {
           return;
@@ -274,6 +277,7 @@ export default function DashboardPage() {
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [authDisplay.hasToken]);
 

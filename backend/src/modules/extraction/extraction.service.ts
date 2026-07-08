@@ -40,6 +40,10 @@ const storageRoot = path.resolve(process.cwd(), "storage", "uploads");
 const imageUnsupportedMessage = "OCR extraction for image files is not implemented yet.";
 const targetChunkCharacters = 5000;
 const maxChunkCharacters = 6000;
+const extractionTransactionOptions = {
+  maxWait: 10_000,
+  timeout: 30_000
+};
 
 function countWords(text: string) {
   const words = text.trim().match(/\S+/g);
@@ -332,32 +336,37 @@ export async function extractDocumentText(context: RequestContext, documentId: s
     }
 
     const chunks = splitIntoChunks(normalizedText);
-    await prisma.$transaction(async (tx) => {
-      await tx.documentTextChunk.deleteMany({ where: { documentId } });
-      if (chunks.length > 0) {
-        await tx.documentTextChunk.createMany({
-          data: chunks.map((chunk) => ({
-            documentId,
-            chunkIndex: chunk.chunkIndex,
-            text: chunk.text,
-            characterStart: chunk.characterStart,
-            characterEnd: chunk.characterEnd,
-            wordCount: chunk.wordCount
-          }))
-        });
-      }
-
-      await tx.documentExtraction.update({
-        where: { id: pendingExtraction.id },
-        data: {
-          status: "COMPLETED",
-          extractedText: normalizedText,
-          wordCount: countWords(normalizedText),
-          characterCount: normalizedText.length,
-          pageCount: extracted.pageCount ?? null
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.documentTextChunk.deleteMany({ where: { documentId } });
+        if (chunks.length > 0) {
+          await tx.documentTextChunk.createMany({
+            data: chunks.map((chunk) => ({
+              documentId,
+              chunkIndex: chunk.chunkIndex,
+              text: chunk.text,
+              characterStart: chunk.characterStart,
+              characterEnd: chunk.characterEnd,
+              wordCount: chunk.wordCount
+            }))
+          });
         }
-      });
-    });
+
+        await tx.documentExtraction.update({
+          where: { id: pendingExtraction.id },
+          data: {
+            status: "COMPLETED",
+            extractedText: normalizedText,
+            wordCount: countWords(normalizedText),
+            characterCount: normalizedText.length,
+            pageCount: extracted.pageCount ?? null
+          }
+        });
+      }, extractionTransactionOptions);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Document text chunk persistence failed.";
+      throw new Error(`Document text chunk persistence failed: ${message}`);
+    }
 
     return summarizeExtraction(documentId, pendingExtraction.id);
   } catch (error) {

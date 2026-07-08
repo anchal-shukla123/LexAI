@@ -11,6 +11,10 @@ export const documentParamsSchema = z.object({
   documentId: idParamSchema
 });
 
+export const documentDetailQuerySchema = z.object({
+  view: z.enum(["detail", "summary"]).optional()
+});
+
 export const createDocumentSchema = z
   .object({
     title: z.string().trim().min(1, "Title is required.").max(160, "Title must be 160 characters or less."),

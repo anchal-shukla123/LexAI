@@ -6,6 +6,7 @@ import { parseOrThrow } from "../shared/validation.js";
 import { createDocument, getDocumentDetail, listDocuments, softDeleteDocument, updateDocument } from "./documents.service.js";
 import {
   createDocumentSchema,
+  documentDetailQuerySchema,
   documentParamsSchema,
   documentsQuerySchema,
   updateDocumentSchema
@@ -24,8 +25,11 @@ export const getDocuments: RequestHandler = async (req, res) => {
 
 export const getDocument: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
+  const query = parseOrThrow(documentDetailQuerySchema, req.query);
   const context = await getRequestContext(req);
-  const document = await getDocumentDetail(context, params.documentId);
+  const document = await getDocumentDetail(context, params.documentId, {
+    view: query.view ?? "detail"
+  });
   sendSuccess(res, document);
 };
 
