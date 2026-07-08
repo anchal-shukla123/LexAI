@@ -1,4 +1,4 @@
-import type { ClauseCategory, Prisma } from "@prisma/client";
+import type { ClauseCategory, ClauseExtractionMethod, ExtractionStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
@@ -6,7 +6,25 @@ import type { Pagination } from "../../utils/response.js";
 import { ensureDocumentTextExtracted } from "../extraction/extraction.service.js";
 import type { RequestContext } from "../shared/request-context.js";
 
-type ClauseExtractionStatus = "COMPLETED" | "FAILED" | "NO_CLAUSES_FOUND" | "EXTRACTION_UNAVAILABLE";
+type ClauseExtractionStatus =
+  | "COMPLETED"
+  | "FAILED"
+  | "NO_CLAUSES_FOUND"
+  | "EXTRACTION_UNAVAILABLE"
+  | "FALLBACK_MOCK_USED"
+  | "NOT_STARTED";
+
+type ExtractionSummaryInput = {
+  documentId: string;
+  status: ExtractionStatus | "FAILED";
+  wordCount: number;
+  characterCount: number;
+  chunkCount: number;
+  pageCount: number | null;
+  fileName: string | null;
+  mimeType: string | null;
+  errorMessage: string | null;
+};
 
 type ClauseDraft = {
   category: ClauseCategory;
@@ -23,6 +41,7 @@ type StoredClause = {
   id: string;
   title: string;
   category: ClauseCategory;
+  extractionMethod: ClauseExtractionMethod;
   confidence: number;
   excerpt: string;
   pageNumber: number | null;
@@ -43,9 +62,14 @@ const transactionOptions = {
   timeout: 30_000
 };
 
-const maxClauseCount = 30;
+const maxHeadingClauseCount = 18;
+const maxFallbackClauseCount = 10;
 const maxSourceTextLength = 12_000;
 const maxExcerptLength = 320;
+const sentenceConnectorPattern =
+  /\b(that|which|where|provided|including|without limitation|under this agreement|under this|pursuant to|subject to|whether|regardless|directly|indirectly)\b/i;
+const boilerplatePattern =
+  /automatically create polished|clone the document|learn more about|provided at all times|fillable and signable|--\s*\d+\s+of\s+\d+\s*--/i;
 
 const categoryKeywords: Array<{
   category: ClauseCategory;
@@ -173,12 +197,16 @@ function titleCase(value: string) {
     .toLowerCase()
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
     .replace(/\bIp\b/g, "IP")
-    .replace(/\bGdpr\b/g, "GDPR");
+    .replace(/\bGdpr\b/g, "GDPR")
+    .replace(/\bIi\b/g, "II")
+    .replace(/\bIii\b/g, "III")
+    .replace(/\bIv\b/g, "IV");
 }
 
 function stripHeadingPrefix(line: string) {
   return line
     .replace(/^\s*(section|article|clause)\s+[ivxlcdm\d]+(?:[.):\s-]+)?/i, "")
+    .replace(/^\s*[ivxlcdm]+[.):\s-]+/i, "")
     .replace(/^\s*\d+(?:\.\d+)*[.):\s-]+/, "")
     .trim();
 }
@@ -190,7 +218,18 @@ function isNoiseLine(line: string) {
   if (/^page\s+\d+(\s+of\s+\d+)?$/i.test(value)) return true;
   if (/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(value)) return true;
   if (/^[-_=*]{3,}$/.test(value)) return true;
+  if (boilerplatePattern.test(value)) return true;
   return false;
+}
+
+function normalizeExtractionText(text: string) {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => !isNoiseLine(line))
+    .join("\n");
 }
 
 function countKeywordHits(text: string, keywords: string[]) {
@@ -229,32 +268,123 @@ function bestCategory(heading: string, body: string) {
     return {
       category: "OTHER" as ClauseCategory,
       label: "Other",
-      confidence: 0.35
+      confidence: 0.35,
+      headingHits: 0,
+      bodyHits: best.bodyHits
     };
   }
 
   return {
     category: best.category,
     label: best.label,
-    confidence: Math.max(0.48, best.confidence)
+    confidence: Math.max(0.48, best.confidence),
+    headingHits: best.headingHits,
+    bodyHits: best.bodyHits
   };
 }
 
-function looksLikeHeading(line: string, nextLine?: string) {
-  const value = line.trim();
-  if (isNoiseLine(value) || value.length > 120 || value.length < 3) return false;
-  if (/signature|in witness whereof|authorized representative/i.test(value)) return false;
+function wordCount(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
 
+function endsLikeContinuation(value: string) {
+  return /[,;:]$|\b(and|or|of|to|by|for|from|with|without|including|which|that|where|provided)$/i.test(value.trim());
+}
+
+function startsMidSentence(value: string) {
+  return /^[a-z,;:)]/.test(value.trim());
+}
+
+function headingSignal(line: string) {
+  const value = line.trim();
   const stripped = stripHeadingPrefix(value);
-  const hasNumbering = /^(section|article|clause)\s+[ivxlcdm\d]+/i.test(value) || /^\d+(?:\.\d+)*[.):\s-]+/.test(value);
-  const hasLegalKeyword = categoryKeywords.some((candidate) => countKeywordHits(value, candidate.keywords) > 0);
+  const words = wordCount(stripped);
+  const explicitPrefix = /^(section|article|clause)\s+[ivxlcdm\d]+/i.test(value);
+  const numbered = /^\d+(?:\.\d+)*[.): -]\s+/.test(value) || /^[ivxlcdm]+[.): -]\s+/i.test(value);
   const letters = stripped.replace(/[^a-z]/gi, "");
   const upperRatio = letters.length > 0 ? stripped.replace(/[^A-Z]/g, "").length / letters.length : 0;
-  const isUpper = letters.length >= 4 && upperRatio > 0.75;
-  const isTitle = /^[A-Z][A-Za-z0-9,&'()/\-\s]+$/.test(stripped) && stripped.split(/\s+/).length <= 9;
-  const followedByText = Boolean(nextLine && !isNoiseLine(nextLine) && nextLine.trim().length > 20);
+  const allCaps = letters.length >= 4 && upperRatio > 0.75;
+  const shortLegal = value.length <= 80 && words <= 10 && categoryKeywords.some((candidate) => countKeywordHits(stripped, candidate.keywords) > 0);
 
-  return (hasLegalKeyword && (hasNumbering || isUpper || isTitle || followedByText)) || (hasNumbering && (hasLegalKeyword || followedByText));
+  return {
+    explicitPrefix,
+    numbered,
+    allCaps,
+    shortLegal,
+    stripped,
+    words
+  };
+}
+
+function isStrongHeading(line: string) {
+  const value = line.trim();
+  if (isNoiseLine(value) || value.length < 3) return false;
+  const signal = headingSignal(value);
+  const hasExplicitStructure = signal.explicitPrefix || signal.numbered;
+  if (!hasExplicitStructure && value.length > 100) return false;
+  if (!hasExplicitStructure && signal.words > 12) return false;
+  if (!hasExplicitStructure && /[,;]$|\band$/i.test(value)) return false;
+  if (!hasExplicitStructure && sentenceConnectorPattern.test(value)) return false;
+  if (!hasExplicitStructure && startsMidSentence(value)) return false;
+  if (/signature|in witness whereof|authorized representative/i.test(value)) return false;
+
+  if (hasExplicitStructure) {
+    if (signal.words > 12) return false;
+    if (sentenceConnectorPattern.test(signal.stripped)) return false;
+    if (/[,;]$|\band$/i.test(signal.stripped)) return false;
+    return signal.stripped.length > 0 && signal.stripped.length <= 100;
+  }
+
+  if (signal.allCaps) {
+    return value.length <= 80 && signal.words <= 10;
+  }
+
+  return signal.shortLegal;
+}
+
+function shouldMergeLines(current: string, next: string) {
+  if (!current || !next) return false;
+  if (isStrongHeading(current) || isStrongHeading(next)) return false;
+  if (/[.!?]$/.test(current.trim())) return false;
+  if (startsMidSentence(next)) return true;
+  if (endsLikeContinuation(current)) return true;
+  if (current.length < 90 && /^[a-z(]/.test(next.trim())) return true;
+  return false;
+}
+
+function mergeWrappedLines(text: string) {
+  const rawLines = normalizeExtractionText(text).split("\n");
+  const lines: string[] = [];
+  let current = "";
+
+  for (const rawLine of rawLines) {
+    const line = rawLine.trim();
+    if (!line) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    if (!current) {
+      current = line;
+      continue;
+    }
+
+    if (shouldMergeLines(current, line)) {
+      current = `${current} ${line}`;
+    } else {
+      lines.push(current);
+      current = line;
+    }
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
 }
 
 function findOffset(text: string, needle: string, cursor: number) {
@@ -267,12 +397,12 @@ function findOffset(text: string, needle: string, cursor: number) {
   return normalizedIndex >= 0 ? normalizedIndex : null;
 }
 
-function buildPlainSummary(category: ClauseCategory, title: string, text: string) {
+function buildPlainSummary(category: ClauseCategory, _title: string, text: string) {
   const categoryLabel = categoryKeywords.find((candidate) => candidate.category === category)?.label ?? titleCase(category);
   return `${categoryLabel} clause detected from the uploaded document: ${excerpt(text)}`;
 }
 
-function dedupeDrafts(drafts: ClauseDraft[]) {
+function dedupeDrafts(drafts: ClauseDraft[], limit: number) {
   const seen = new Set<string>();
   const deduped: ClauseDraft[] = [];
 
@@ -283,18 +413,44 @@ function dedupeDrafts(drafts: ClauseDraft[]) {
     deduped.push(draft);
   }
 
-  return deduped.sort((left, right) => (left.startOffset ?? 0) - (right.startOffset ?? 0)).slice(0, maxClauseCount);
+  return deduped.sort((left, right) => (left.startOffset ?? 0) - (right.startOffset ?? 0)).slice(0, limit);
+}
+
+function paragraphCandidates(lines: string[]) {
+  const paragraphs: string[] = [];
+  let current = "";
+
+  for (const line of lines) {
+    if (isStrongHeading(line)) {
+      if (current) {
+        paragraphs.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current = current ? `${current} ${line}` : line;
+    if (/[.!?]$/.test(line)) {
+      paragraphs.push(current);
+      current = "";
+    }
+  }
+
+  if (current) {
+    paragraphs.push(current);
+  }
+
+  return paragraphs.map(normalizeWhitespace).filter((paragraph) => paragraph.length >= 100 && paragraph.length <= 5000);
 }
 
 export function extractClauseDraftsFromText(text: string): ClauseDraft[] {
-  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = normalizedText.split("\n");
+  const normalizedText = normalizeExtractionText(text);
+  const lines = mergeWrappedLines(text);
   const headingIndexes: Array<{ index: number; title: string }> = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]?.trim() ?? "";
-    const nextLine = lines[index + 1]?.trim();
-    if (looksLikeHeading(line, nextLine)) {
+    if (isStrongHeading(line)) {
       headingIndexes.push({ index, title: stripHeadingPrefix(line) || line });
     }
   }
@@ -309,9 +465,10 @@ export function extractClauseDraftsFromText(text: string): ClauseDraft[] {
       if (!heading) continue;
       const sectionLines = lines.slice(heading.index, nextHeading?.index);
       const sectionText = normalizeWhitespace(sectionLines.join("\n"));
-      if (sectionText.length < 40) continue;
+      if (sectionText.length < 60) continue;
 
       const classification = bestCategory(heading.title, sectionText);
+      if (classification.category === "OTHER" && classification.confidence < 0.5) continue;
       const startOffset = findOffset(normalizedText, sectionLines.join("\n").trim(), cursor);
       const endOffset = startOffset === null ? null : startOffset + sectionText.length;
       cursor = endOffset ?? cursor;
@@ -330,24 +487,31 @@ export function extractClauseDraftsFromText(text: string): ClauseDraft[] {
   }
 
   if (drafts.length === 0) {
-    const paragraphs = normalizedText
-      .split(/\n{2,}/)
-      .map((paragraph) => normalizeWhitespace(paragraph))
-      .filter((paragraph) => paragraph.length >= 80 && paragraph.length <= 6000);
+    const fallback = paragraphCandidates(lines)
+      .map((paragraph) => {
+        const classification = bestCategory("", paragraph);
+        const totalKeywordHits = categoryKeywords.reduce((total, candidate) => total + countKeywordHits(paragraph, candidate.keywords), 0);
+        return {
+          paragraph,
+          classification,
+          score: totalKeywordHits / Math.max(1, wordCount(paragraph) / 80)
+        };
+      })
+      .filter((candidate) => candidate.classification.category !== "OTHER" && candidate.classification.confidence >= 0.6 && candidate.score >= 0.5)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, maxFallbackClauseCount);
 
-    for (const paragraph of paragraphs) {
-      const classification = bestCategory("", paragraph);
-      if (classification.category === "OTHER" && classification.confidence < 0.48) continue;
-      const startOffset = findOffset(normalizedText, paragraph, cursor);
-      const endOffset = startOffset === null ? null : startOffset + paragraph.length;
+    for (const candidate of fallback) {
+      const startOffset = findOffset(normalizedText, candidate.paragraph, cursor);
+      const endOffset = startOffset === null ? null : startOffset + candidate.paragraph.length;
       cursor = endOffset ?? cursor;
 
       drafts.push({
-        category: classification.category,
-        title: classification.label,
-        sourceText: paragraph.slice(0, maxSourceTextLength),
-        plainLanguageSummary: buildPlainSummary(classification.category, classification.label, paragraph),
-        confidence: classification.confidence,
+        category: candidate.classification.category,
+        title: candidate.classification.label,
+        sourceText: candidate.paragraph.slice(0, maxSourceTextLength),
+        plainLanguageSummary: buildPlainSummary(candidate.classification.category, candidate.classification.label, candidate.paragraph),
+        confidence: candidate.classification.confidence,
         pageNumber: null,
         startOffset,
         endOffset
@@ -355,7 +519,7 @@ export function extractClauseDraftsFromText(text: string): ClauseDraft[] {
     }
   }
 
-  return dedupeDrafts(drafts);
+  return dedupeDrafts(drafts, headingIndexes.length > 0 ? maxHeadingClauseCount : maxFallbackClauseCount);
 }
 
 function categoriesFor(drafts: Array<{ category: ClauseCategory }>) {
@@ -384,10 +548,11 @@ async function assertDocumentAccess(context: RequestContext, documentId: string)
 
 export async function prepareClauseExtraction(
   context: RequestContext,
-  documentId: string
+  documentId: string,
+  extractionInput?: ExtractionSummaryInput
 ): Promise<PreparedClauseExtraction> {
   await assertDocumentAccess(context, documentId);
-  const extraction = await ensureDocumentTextExtracted(context, documentId);
+  const extraction = extractionInput ?? (await ensureDocumentTextExtracted(context, documentId));
 
   if (extraction.status !== "COMPLETED") {
     return {
@@ -400,8 +565,17 @@ export async function prepareClauseExtraction(
     };
   }
 
-  const [latestExtraction, chunks] = await Promise.all([
-    prisma.documentExtraction.findFirst({
+  const chunks = await prisma.documentTextChunk.findMany({
+    where: { documentId },
+    orderBy: { chunkIndex: "asc" },
+    select: {
+      text: true
+    }
+  });
+
+  let text = chunks.map((chunk) => chunk.text).join("\n\n");
+  if (normalizeWhitespace(text).length === 0) {
+    const latestExtraction = await prisma.documentExtraction.findFirst({
       where: {
         documentId,
         status: "COMPLETED",
@@ -413,17 +587,10 @@ export async function prepareClauseExtraction(
       select: {
         extractedText: true
       }
-    }),
-    prisma.documentTextChunk.findMany({
-      where: { documentId },
-      orderBy: { chunkIndex: "asc" },
-      select: {
-        text: true
-      }
-    })
-  ]);
+    });
+    text = latestExtraction?.extractedText ?? "";
+  }
 
-  const text = latestExtraction?.extractedText ?? chunks.map((chunk) => chunk.text).join("\n\n");
   if (normalizeWhitespace(text).length === 0) {
     return {
       documentId,
@@ -451,44 +618,55 @@ export async function replaceClauseFindings(
     documentId: string;
     analysisJobId: string;
     drafts: ClauseDraft[];
+    extractionMethod: ClauseExtractionMethod;
+    deleteMethods?: ClauseExtractionMethod[];
   }
 ) {
-  await tx.clauseFinding.deleteMany({
-    where: {
-      documentId: input.documentId
-    }
-  });
-
-  const created: Array<{ id: string }> = [];
-  for (const draft of input.drafts) {
-    created.push(
-      await tx.clauseFinding.create({
-        data: {
-          documentId: input.documentId,
-          analysisJobId: input.analysisJobId,
-          category: draft.category,
-          title: draft.title,
-          sourceText: draft.sourceText,
-          plainLanguageSummary: draft.plainLanguageSummary,
-          confidence: draft.confidence,
-          pageNumber: draft.pageNumber,
-          startOffset: draft.startOffset,
-          endOffset: draft.endOffset
-        },
-        select: {
-          id: true
-        }
-      })
-    );
+  if (input.deleteMethods) {
+    await tx.clauseFinding.deleteMany({
+      where: {
+        documentId: input.documentId,
+        extractionMethod: { in: input.deleteMethods }
+      }
+    });
   }
 
-  return created;
+  if (input.drafts.length > 0) {
+    await tx.clauseFinding.createMany({
+      data: input.drafts.map((draft) => ({
+        documentId: input.documentId,
+        analysisJobId: input.analysisJobId,
+        extractionMethod: input.extractionMethod,
+        category: draft.category,
+        title: draft.title,
+        sourceText: draft.sourceText,
+        plainLanguageSummary: draft.plainLanguageSummary,
+        confidence: draft.confidence,
+        pageNumber: draft.pageNumber,
+        startOffset: draft.startOffset,
+        endOffset: draft.endOffset
+      }))
+    });
+  }
+
+  return tx.clauseFinding.findMany({
+    where: {
+      documentId: input.documentId,
+      analysisJobId: input.analysisJobId,
+      extractionMethod: input.extractionMethod
+    },
+    orderBy: [{ startOffset: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true
+    }
+  });
 }
 
 function serializeClause(clause: {
   id: string;
   title: string;
   category: ClauseCategory;
+  extractionMethod: ClauseExtractionMethod;
   confidence: number;
   sourceText: string;
   pageNumber: number | null;
@@ -498,6 +676,7 @@ function serializeClause(clause: {
     id: clause.id,
     title: clause.title,
     category: clause.category,
+    extractionMethod: clause.extractionMethod,
     confidence: clause.confidence,
     excerpt: excerpt(clause.sourceText),
     pageNumber: clause.pageNumber,
@@ -507,17 +686,6 @@ function serializeClause(clause: {
 
 export async function extractAndStoreClauses(context: RequestContext, documentId: string) {
   const prepared = await prepareClauseExtraction(context, documentId);
-  if (prepared.status !== "COMPLETED") {
-    return {
-      documentId,
-      status: prepared.status,
-      clauseCount: 0,
-      categories: {},
-      clauses: [] as StoredClause[],
-      errorMessage: prepared.errorMessage
-    };
-  }
-
   const result = await prisma.$transaction(async (tx) => {
     const job = await tx.analysisJob.create({
       data: {
@@ -530,7 +698,8 @@ export async function extractAndStoreClauses(context: RequestContext, documentId
         completedAt: new Date(),
         metadata: {
           clauseExtractionStatus: prepared.status,
-          clauseCount: prepared.clauseCount
+          realClauseCount: prepared.clauseCount,
+          errorMessage: prepared.errorMessage
         }
       },
       select: {
@@ -541,19 +710,23 @@ export async function extractAndStoreClauses(context: RequestContext, documentId
     await replaceClauseFindings(tx, {
       documentId,
       analysisJobId: job.id,
-      drafts: prepared.drafts
+      drafts: prepared.drafts,
+      extractionMethod: "RULE_BASED",
+      deleteMethods: ["RULE_BASED"]
     });
 
     const clauses = await tx.clauseFinding.findMany({
       where: {
         documentId,
-        analysisJobId: job.id
+        analysisJobId: job.id,
+        extractionMethod: "RULE_BASED"
       },
       orderBy: [{ startOffset: "asc" }, { createdAt: "asc" }],
       select: {
         id: true,
         title: true,
         category: true,
+        extractionMethod: true,
         confidence: true,
         sourceText: true,
         pageNumber: true,
@@ -569,9 +742,12 @@ export async function extractAndStoreClauses(context: RequestContext, documentId
   return {
     documentId,
     status: prepared.status,
-    clauseCount: result.clauses.length,
+    realClauseCount: result.clauses.length,
+    mockClauseCount: 0,
+    storedClauseCount: result.clauses.length,
     categories: categoriesFor(result.clauses),
-    clauses: result.clauses
+    clauses: result.clauses,
+    errorMessage: prepared.errorMessage
   };
 }
 
@@ -586,13 +762,14 @@ export async function listClauseFindings(
     prisma.clauseFinding.count({ where }),
     prisma.clauseFinding.findMany({
       where,
-      orderBy: [{ startOffset: "asc" }, { pageNumber: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ extractionMethod: "asc" }, { startOffset: "asc" }, { pageNumber: "asc" }, { createdAt: "asc" }],
       skip: (input.page - 1) * input.limit,
       take: input.limit,
       select: {
         id: true,
         analysisJobId: true,
         category: true,
+        extractionMethod: true,
         title: true,
         sourceText: true,
         plainLanguageSummary: true,
@@ -618,37 +795,90 @@ export async function listClauseFindings(
   };
 }
 
+function statusFromMetadata(value: Prisma.JsonValue | null | undefined) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const status = (value as Record<string, unknown>).clauseExtractionStatus;
+  return typeof status === "string" ? status : null;
+}
+
 export async function getClauseExtractionSummary(documentId: string) {
-  const clauses = await prisma.clauseFinding.findMany({
-    where: { documentId },
-    orderBy: [{ startOffset: "asc" }, { createdAt: "asc" }],
-    take: 5,
-    select: {
-      title: true,
-      category: true,
-      confidence: true,
-      sourceText: true
-    }
-  });
-  const grouped = await prisma.clauseFinding.groupBy({
-    by: ["category"],
-    where: { documentId },
-    _count: {
-      category: true
-    }
-  });
-  const clauseCount = grouped.reduce((total, item) => total + item._count.category, 0);
+  const [realClauses, mockClauses, groupedReal, recentClauseJobs, realClauseCount, mockClauseCount] = await Promise.all([
+    prisma.clauseFinding.findMany({
+      where: { documentId, extractionMethod: "RULE_BASED" },
+      orderBy: [{ startOffset: "asc" }, { createdAt: "asc" }],
+      take: 5,
+      select: {
+        title: true,
+        category: true,
+        extractionMethod: true,
+        confidence: true,
+        sourceText: true
+      }
+    }),
+    prisma.clauseFinding.findMany({
+      where: { documentId, extractionMethod: "MOCK" },
+      orderBy: [{ createdAt: "asc" }],
+      take: 5,
+      select: {
+        title: true,
+        category: true,
+        extractionMethod: true,
+        confidence: true,
+        sourceText: true
+      }
+    }),
+    prisma.clauseFinding.groupBy({
+      by: ["category"],
+      where: { documentId, extractionMethod: "RULE_BASED" },
+      _count: {
+        category: true
+      }
+    }),
+    prisma.analysisJob.findMany({
+      where: {
+        documentId
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        metadata: true
+      }
+    }),
+    prisma.clauseFinding.count({ where: { documentId, extractionMethod: "RULE_BASED" } }),
+    prisma.clauseFinding.count({ where: { documentId, extractionMethod: "MOCK" } })
+  ]);
+
+  const storedClauseCount = realClauseCount + mockClauseCount;
+  const latestStatus = recentClauseJobs.map((job) => statusFromMetadata(job.metadata)).find((status): status is string => Boolean(status));
+  const status: ClauseExtractionStatus =
+    realClauseCount > 0
+      ? "COMPLETED"
+      : latestStatus === "FAILED"
+        ? "FAILED"
+        : mockClauseCount > 0 && (latestStatus === "NO_CLAUSES_FOUND" || latestStatus === "EXTRACTION_UNAVAILABLE")
+          ? "FALLBACK_MOCK_USED"
+          : latestStatus === "NO_CLAUSES_FOUND"
+            ? "NO_CLAUSES_FOUND"
+            : latestStatus === "EXTRACTION_UNAVAILABLE"
+              ? "EXTRACTION_UNAVAILABLE"
+              : "NOT_STARTED";
+
+  const topClauseSource = realClauses.length > 0 ? realClauses : mockClauses;
 
   return {
-    status: clauseCount > 0 ? "COMPLETED" : "NO_CLAUSES_FOUND",
-    clauseCount,
-    categories: grouped.reduce<Record<string, number>>((summary, item) => {
+    status,
+    realClauseCount,
+    mockClauseCount,
+    storedClauseCount,
+    categories: groupedReal.reduce<Record<string, number>>((summary, item) => {
       summary[item.category] = item._count.category;
       return summary;
     }, {}),
-    topClauses: clauses.map((clause) => ({
+    topClauses: topClauseSource.map((clause) => ({
       title: clause.title,
       category: clause.category,
+      extractionMethod: clause.extractionMethod,
+      isFallbackMock: clause.extractionMethod === "MOCK",
       confidence: clause.confidence,
       excerpt: excerpt(clause.sourceText)
     }))

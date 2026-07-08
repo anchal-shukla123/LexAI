@@ -63,6 +63,16 @@ enum ClauseCategory {
   MISCELLANEOUS
 }
 
+enum ClauseExtractionMethod {
+  RULE_BASED
+  MOCK
+}
+
+enum RiskDetectionMethod {
+  RULE_BASED
+  MOCK
+}
+
 enum ReportStatus {
   DRAFT
   READY
@@ -298,6 +308,7 @@ model ClauseFinding {
   documentId           String
   analysisJobId        String
   category             ClauseCategory
+  extractionMethod     ClauseExtractionMethod @default(MOCK)
   title                String
   sourceText           String
   plainLanguageSummary String
@@ -314,6 +325,7 @@ model ClauseFinding {
   @@index([documentId])
   @@index([analysisJobId])
   @@index([category])
+  @@index([extractionMethod])
 }
 
 model RiskFinding {
@@ -321,11 +333,15 @@ model RiskFinding {
   documentId      String
   analysisJobId   String
   clauseFindingId String?
+  detectionMethod RiskDetectionMethod @default(MOCK)
+  ruleId          String?
+  category        ClauseCategory?
   riskLevel       RiskLevel
   title           String
   description     String
   evidence        String?
   impact          String?
+  recommendationHint String?
   confidence      Float
   createdAt       DateTime  @default(now())
 
@@ -338,6 +354,8 @@ model RiskFinding {
   @@index([riskLevel])
   @@index([analysisJobId])
   @@index([clauseFindingId])
+  @@index([detectionMethod])
+  @@index([ruleId])
 }
 
 model Recommendation {

@@ -218,6 +218,42 @@ async function summarizeExtraction(documentId: string, extractionId: string): Pr
   };
 }
 
+async function ensureChunksForCompletedExtraction(documentId: string, extractionId: string) {
+  const chunkCount = await prisma.documentTextChunk.count({ where: { documentId } });
+  if (chunkCount > 0) {
+    return;
+  }
+
+  const extraction = await prisma.documentExtraction.findUnique({
+    where: { id: extractionId },
+    select: {
+      extractedText: true
+    }
+  });
+
+  const extractedText = extraction?.extractedText;
+  if (!extractedText) {
+    return;
+  }
+
+  const chunks = splitIntoChunks(extractedText);
+  if (chunks.length === 0) {
+    return;
+  }
+
+  await prisma.documentTextChunk.createMany({
+    data: chunks.map((chunk) => ({
+      documentId,
+      chunkIndex: chunk.chunkIndex,
+      text: chunk.text,
+      characterStart: chunk.characterStart,
+      characterEnd: chunk.characterEnd,
+      wordCount: chunk.wordCount
+    })),
+    skipDuplicates: true
+  });
+}
+
 async function saveUnsupportedExtraction(documentId: string, file: Awaited<ReturnType<typeof getDocumentWithLatestFile>>["latestFile"]) {
   const extraction = await prisma.$transaction(async (tx) => {
     await tx.documentTextChunk.deleteMany({ where: { documentId } });
@@ -351,6 +387,7 @@ export async function ensureDocumentTextExtracted(context: RequestContext, docum
   });
 
   if (existingExtraction) {
+    await ensureChunksForCompletedExtraction(documentId, existingExtraction.id);
     return summarizeExtraction(documentId, existingExtraction.id);
   }
 

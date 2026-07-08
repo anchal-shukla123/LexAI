@@ -145,6 +145,7 @@ async function upsertClauseFinding(documentId: string, analysisJobId: string, da
       where: { id: existing.id },
       data: {
         ...data,
+        extractionMethod: "MOCK",
         analysisJobId
       }
     });
@@ -154,7 +155,8 @@ async function upsertClauseFinding(documentId: string, analysisJobId: string, da
     data: {
       ...data,
       documentId,
-      analysisJobId
+      analysisJobId,
+      extractionMethod: "MOCK"
     }
   });
 }

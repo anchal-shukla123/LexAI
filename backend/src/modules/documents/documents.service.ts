@@ -5,6 +5,7 @@ import { AppError } from "../../utils/app-error.js";
 import { getClauseExtractionSummary } from "../clauses/clause-extraction.service.js";
 import type { Pagination } from "../../utils/response.js";
 import { getDocumentExtractionSummary } from "../extraction/extraction.service.js";
+import { getRiskDetectionSummary } from "../risks/risk-detection.service.js";
 import type { RequestContext } from "../shared/request-context.js";
 
 type ListDocumentsInput = {
@@ -270,6 +271,7 @@ export async function getDocumentDetail(context: RequestContext, documentId: str
           id: true,
           analysisJobId: true,
           category: true,
+          extractionMethod: true,
           title: true,
           sourceText: true,
           plainLanguageSummary: true,
@@ -286,13 +288,23 @@ export async function getDocumentDetail(context: RequestContext, documentId: str
           id: true,
           analysisJobId: true,
           clauseFindingId: true,
+          detectionMethod: true,
+          ruleId: true,
+          category: true,
           riskLevel: true,
           title: true,
           description: true,
           evidence: true,
           impact: true,
+          recommendationHint: true,
           confidence: true,
-          createdAt: true
+          createdAt: true,
+          clauseFinding: {
+            select: {
+              title: true,
+              category: true
+            }
+          }
         }
       },
       recommendations: {
@@ -337,6 +349,7 @@ export async function getDocumentDetail(context: RequestContext, documentId: str
 
   const extraction = await getDocumentExtractionSummary(document.id);
   const clauseExtraction = await getClauseExtractionSummary(document.id);
+  const riskDetection = await getRiskDetectionSummary(document.id);
 
   return {
     ...document,
@@ -345,6 +358,7 @@ export async function getDocumentDetail(context: RequestContext, documentId: str
       sourceText: clause.sourceText.length > 600 ? `${clause.sourceText.slice(0, 599)}...` : clause.sourceText
     })),
     extraction,
-    clauseExtraction
+    clauseExtraction,
+    riskDetection
   };
 }

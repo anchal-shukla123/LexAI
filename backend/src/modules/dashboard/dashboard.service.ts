@@ -23,6 +23,7 @@ export async function getWorkspaceDashboard(context: RequestContext) {
     prisma.riskFinding.count({
       where: {
         document: { workspaceId, deletedAt: null },
+        detectionMethod: "RULE_BASED",
         riskLevel: { in: [RiskLevel.HIGH, RiskLevel.CRITICAL] }
       }
     }),

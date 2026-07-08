@@ -1,4 +1,5 @@
 export type AppErrorCode =
+  | "BAD_REQUEST"
   | "VALIDATION_ERROR"
   | "UNAUTHORIZED"
   | "FORBIDDEN"
@@ -8,6 +9,7 @@ export type AppErrorCode =
   | "INTERNAL_ERROR";
 
 const statusByCode: Record<AppErrorCode, number> = {
+  BAD_REQUEST: 400,
   VALIDATION_ERROR: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
