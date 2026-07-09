@@ -114,64 +114,55 @@ function countLoadedBy<T extends string | null>(items: Array<{ value: T }>) {
 
 export async function listDocuments(context: RequestContext, input: ListDocumentsInput) {
   const { workspace } = context;
+  const startedAt = Date.now();
   const where: Prisma.DocumentWhereInput = {
     workspaceId: workspace.id,
     deletedAt: null,
     ...(input.status ? { status: input.status } : {})
   };
 
-  const [total, documents] = await Promise.all([
-    prisma.document.count({ where }),
-    prisma.document.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (input.page - 1) * input.limit,
-      take: input.limit,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        riskScore: true,
-        summary: true,
-        createdAt: true,
-        updatedAt: true,
-        files: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            fileName: true,
-            originalName: true,
-            mimeType: true,
-            extension: true,
-            sizeBytes: true,
-            checksum: true,
-            createdAt: true
-          }
-        },
-        currentAnalysisJob: {
-          select: {
-            id: true,
-            status: true,
-            provider: true,
-            startedAt: true,
-            completedAt: true,
-            failedAt: true,
-            errorCode: true,
-            errorMessage: true,
-            metadata: true,
-            createdAt: true,
-            updatedAt: true
+  try {
+    const [total, documents] = await Promise.all([
+      prisma.document.count({ where }),
+      prisma.document.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (input.page - 1) * input.limit,
+        take: input.limit,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          riskScore: true,
+          summary: true,
+          createdAt: true,
+          updatedAt: true,
+          currentAnalysisJob: {
+            select: {
+              id: true,
+              status: true,
+              provider: true,
+              startedAt: true,
+              completedAt: true,
+              failedAt: true,
+              errorCode: true,
+              errorMessage: true,
+              createdAt: true,
+              updatedAt: true
+            }
           }
         }
-      }
-    })
-  ]);
+      })
+    ]);
 
-  return {
-    documents,
-    pagination: paginationFor(input.page, input.limit, total)
-  };
+    return {
+      documents,
+      pagination: paginationFor(input.page, input.limit, total)
+    };
+  } finally {
+    console.info(`[documents:list] workspace=${workspace.id} page=${input.page} limit=${input.limit} durationMs=${Date.now() - startedAt}`);
+  }
 }
 
 export async function createDocument(context: RequestContext, input: CreateDocumentInput) {

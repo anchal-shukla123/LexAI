@@ -9,7 +9,7 @@ AI-powered contract and legal document intelligence SaaS.
 [![JWT Auth](https://img.shields.io/badge/JWT-Auth-7c3aed)](#)
 [![Live Demo](https://img.shields.io/badge/Live-Demo-16a34a)](https://lex-ai-frontend-opal.vercel.app/)
 
-LexAI is a full-stack MVP in the ApexGroup product ecosystem. It gives legal, operations, and startup teams a premium workspace for uploading contracts, running mock AI analysis, reviewing clause and risk findings, generating reports, and exploring document-aware chat flows.
+LexAI is a full-stack MVP in the ApexGroup product ecosystem. It gives legal, operations, and startup teams a premium workspace for uploading contracts, running rule-based analysis, reviewing clause and risk findings, generating reports, rewriting clauses, preparing negotiation packs, and exploring document-aware chat flows.
 
 Built by Anchal Shukla.
 
@@ -18,19 +18,21 @@ Built by Anchal Shukla.
 Frontend:
 https://lex-ai-frontend-opal.vercel.app/
 
-The live demo uses hosted backend APIs and demo/test data. The AI analysis is a deterministic mock provider for MVP demonstration.
+The live demo uses hosted backend APIs and demo/test data. The current intelligence layer is deterministic and rule-based for MVP demonstration; it does not call paid LLM APIs.
 
 ## Overview
 
-LexAI demonstrates the product and engineering foundation for a legal document intelligence platform. The current app includes a polished Next.js frontend, an Express + TypeScript API, PostgreSQL persistence through Prisma, JWT-based authentication, document upload, mock analysis persistence, reports, chat detail views, and an auth-aware workspace shell.
+LexAI demonstrates the product and engineering foundation for a legal document intelligence platform. The current app includes a polished Next.js frontend, an Express + TypeScript API, PostgreSQL persistence through Prisma, JWT-based authentication, document upload, rule-based extraction and risk persistence, reports, chat detail views, rewrite persistence, negotiation packs, exports, and an auth-aware workspace shell.
 
-The current AI layer is intentionally mocked. It persists realistic analysis outputs so the full product flow can be demonstrated without claiming production OCR, extraction, or legal reasoning. Real OCR and LLM integrations are planned.
+The current AI layer is deterministic and rule-based. It persists realistic analysis outputs so the full product flow can be demonstrated without claiming production legal reasoning. Paid LLM integrations are not required for the MVP.
 
 ## Project Documentation
 
 - [Case Study](docs/CASE_STUDY.md)
 - [Project Overview](docs/PROJECT_OVERVIEW.md)
 - [Demo Guide](docs/DEMO_GUIDE.md)
+- [Demo Script](docs/DEMO_SCRIPT.md)
+- [Local Development](docs/LOCAL_DEVELOPMENT.md)
 - [API Overview](docs/API_OVERVIEW.md)
 - [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)
 - [MVP Checklist](docs/MVP_CHECKLIST.md)
@@ -40,11 +42,13 @@ The current AI layer is intentionally mocked. It persists realistic analysis out
 
 - Premium SaaS dashboard with workspace-aware data.
 - Auth signup, login, logout, and authenticated workspace mode.
-- Demo Mode fallback when no token is present or backend data is unavailable.
+- Demo Auth Mode fallback when no token is present, with real document routes kept separate from demo fallback content.
 - Document create and upload flow for legal files.
-- Mock AI risk analysis persisted in PostgreSQL.
+- Rule-based extraction, clause, risk, and recommendation persistence in PostgreSQL.
 - Clause findings, risk findings, and recommendations.
 - Report generation and report detail views.
+- Persisted clause rewrites with accepted/rejected/draft status.
+- Negotiation pack and deterministic counterparty email generator.
 - AI chat mock grounding against seeded or uploaded document context.
 - Documents library with backend-backed data and fallback content.
 - Settings/profile page for workspace presentation.
@@ -221,6 +225,8 @@ Generate Prisma client:
 npm.cmd run prisma:generate --workspace backend
 ```
 
+If Prisma fails on Windows with an `EPERM` rename error for `query_engine-windows.dll.node`, see [Local Development](docs/LOCAL_DEVELOPMENT.md).
+
 Run migrations:
 
 ```bash
@@ -257,6 +263,7 @@ Open:
 
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:8000/health`
+- Backend readiness: `http://localhost:8000/ready`
 - API root: `http://localhost:8000/api/v1`
 
 ## Demo Flow
@@ -269,11 +276,16 @@ Open:
 6. Let the create/upload/analyze flow complete.
 7. Open the analysis page.
 8. Review risk score, clause findings, risk findings, and recommendations.
-9. Open AI chat from the analysis flow.
-10. Open a generated report.
-11. Visit settings.
-12. Log out.
-13. Confirm pages still render in `Demo Mode`.
+9. Open a generated report.
+10. Review clauses.
+11. Generate and accept a clause rewrite.
+12. Open the negotiation pack.
+13. Generate and copy a professional counterparty email.
+14. Export the PDF report.
+15. Open AI chat from the analysis flow.
+16. Visit settings.
+17. Log out.
+18. Confirm unauthenticated pages clearly show `Demo Auth Mode` rather than fake data on real document routes.
 
 ## API Highlights
 

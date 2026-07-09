@@ -652,7 +652,7 @@ export default function DashboardPage() {
                   ["Workspace mode", modeLabel],
                   ["Current workspace", workspaceName],
                   ["Review readiness", `${reviewedPercent}%`],
-                  ["Analysis provider", "Mock analysis provider active"]
+                  ["Analysis source", "Rule-based records when available"]
                 ].map(([label, value], index) => (
                   <div key={`${label}-${index}`} className="grid gap-1 py-4">
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#A2AAA5]">{label}</span>

@@ -5,7 +5,9 @@ import { createApp } from "./app.js";
 const app = createApp();
 
 const server = app.listen(env.PORT, () => {
-  console.log(`LexAI API listening on port ${env.PORT}`);
+  console.log(`[lexai-api] listening on port ${env.PORT}`);
+  console.log(`[lexai-api] environment=${env.NODE_ENV} apiPrefix=${env.API_PREFIX} corsOrigin=${env.CORS_ORIGIN}`);
+  console.log(`[lexai-api] health=http://localhost:${env.PORT}/health ready=http://localhost:${env.PORT}/ready`);
 });
 
 const shutdown = async (signal: string) => {

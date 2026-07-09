@@ -185,7 +185,7 @@ export default function DocumentsPage() {
                 <h2 className="mt-2 text-2xl font-bold leading-tight text-foreground">Recent documents</h2>
               </div>
               <span className="inline-flex min-h-7 w-fit items-center rounded-full border border-[#D9B76E]/35 bg-[#D9B76E]/10 px-3 py-1 text-xs font-medium text-[#F0D89B]">
-                {isFallback ? "Backend unavailable - showing demo data" : isLoading ? "Loading library" : "Backend data"}
+                {isFallback ? "Backend unavailable - showing demo data" : isLoading ? "Loading library" : "Real document records"}
               </span>
             </div>
 
@@ -241,8 +241,8 @@ export default function DocumentsPage() {
                   <ShieldAlert className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div>
-                  <h2 className="text-xl font-semibold leading-tight text-foreground">Demo analysis</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Open the sample contract risk analysis.</p>
+                  <h2 className="text-xl font-semibold leading-tight text-foreground">Open latest analysis</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Continue with the most recent document review.</p>
                 </div>
               </div>
               <Button asChild className="mt-5 w-full">

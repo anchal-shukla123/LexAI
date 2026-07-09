@@ -7,7 +7,7 @@ import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import { apiRouter } from "./routes/api.routes.js";
-import { healthRouter } from "./routes/health.routes.js";
+import { healthRouter, readinessRouter } from "./routes/health.routes.js";
 
 export function createApp() {
   const app = express();
@@ -23,6 +23,7 @@ export function createApp() {
   app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 
   app.use("/health", healthRouter);
+  app.use("/ready", readinessRouter);
   app.use(env.API_PREFIX, apiRouter);
 
   app.use(notFoundHandler);

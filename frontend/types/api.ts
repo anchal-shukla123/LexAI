@@ -98,7 +98,7 @@ export type DocumentListItem = {
     failedAt: string | null;
     errorCode: string | null;
     errorMessage: string | null;
-    metadata: unknown;
+    metadata?: unknown;
     createdAt: string;
     updatedAt: string;
   } | null;
@@ -277,7 +277,7 @@ export type DashboardData = {
     action: string;
     entityType: string;
     entityId: string | null;
-    metadata: unknown;
+    metadata?: unknown;
     createdAt: string;
     actorUser: UserSummary | null;
   }>;
