@@ -80,7 +80,7 @@ export function AuthModeBadge({ contextMode }: { contextMode?: "auth" | "demo" }
     return (
       <span className="hidden h-8 items-center gap-2 rounded-full border border-[#D9B76E]/30 bg-[#D9B76E]/10 px-3 text-xs font-medium text-[#F0D89B] shadow-[0_8px_24px_rgba(217,183,110,0.08)] sm:inline-flex">
         <span className="h-1.5 w-1.5 rounded-full bg-[#D9B76E]/85 shadow-[0_0_12px_rgba(217,183,110,0.5)]" />
-        Demo Mode
+        Demo Auth Mode
       </span>
     );
   }

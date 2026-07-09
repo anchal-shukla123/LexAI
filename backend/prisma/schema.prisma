@@ -99,6 +99,13 @@ enum ChatRole {
   SYSTEM
 }
 
+enum ClauseRewriteStatus {
+  DRAFT
+  SAVED
+  ACCEPTED
+  REJECTED
+}
+
 enum ExtractionStatus {
   PENDING
   COMPLETED
@@ -130,6 +137,7 @@ model User {
   settings                  UserSettings?
   uploadedDocumentFiles     DocumentFile[]     @relation("DocumentFileUploader")
   workspaceMembers          WorkspaceMember[]  @relation("WorkspaceMemberUser")
+  clauseRewrites            ClauseRewrite[]    @relation("ClauseRewriteCreator")
 
   @@index([createdAt])
 }
@@ -151,6 +159,7 @@ model Workspace {
   exportJobs   ExportJob[]
   members      WorkspaceMember[]
   reports      Report[]
+  clauseRewrites ClauseRewrite[]
   settings     WorkspaceSettings?
 
   @@index([createdById])
@@ -202,6 +211,7 @@ model Document {
   reports            Report[]
   riskFindings       RiskFinding[]
   textChunks         DocumentTextChunk[]
+  clauseRewrites     ClauseRewrite[]
   workspace          Workspace        @relation(fields: [workspaceId], references: [id])
 
   @@index([workspaceId])
@@ -321,11 +331,43 @@ model ClauseFinding {
   analysisJob AnalysisJob   @relation(fields: [analysisJobId], references: [id])
   document    Document      @relation(fields: [documentId], references: [id])
   riskFindings RiskFinding[]
+  rewrites     ClauseRewrite[]
 
   @@index([documentId])
   @@index([analysisJobId])
   @@index([category])
   @@index([extractionMethod])
+}
+
+model ClauseRewrite {
+  id                 String              @id @default(cuid())
+  documentId         String
+  clauseFindingId    String
+  workspaceId        String
+  createdById        String?
+  goal               String
+  userInstruction    String?             @db.Text
+  originalClause     String              @db.Text
+  rewrittenClause    String              @db.Text
+  rewriteStrategy    String              @db.Text
+  keyChanges         Json
+  negotiationPoints  Json
+  riskReductionNotes Json
+  status             ClauseRewriteStatus @default(DRAFT)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  clauseFinding ClauseFinding @relation(fields: [clauseFindingId], references: [id])
+  createdBy     User?         @relation("ClauseRewriteCreator", fields: [createdById], references: [id])
+  document      Document      @relation(fields: [documentId], references: [id])
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id])
+
+  @@index([documentId])
+  @@index([clauseFindingId])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model RiskFinding {

@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { authRouter } from "../modules/auth/auth.routes.js";
 import { chatRouter } from "../modules/chat/chat.routes.js";
+import { clauseRewritesRouter } from "../modules/clauses/clause-rewrites.routes.js";
 import { dashboardRouter } from "../modules/dashboard/dashboard.routes.js";
 import { documentsRouter } from "../modules/documents/documents.routes.js";
 import { exportsRouter } from "../modules/exports/exports.routes.js";
@@ -20,6 +21,7 @@ apiRouter.get("/", (_req, res) => {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/dashboard", dashboardRouter);
 apiRouter.use("/documents", documentsRouter);
+apiRouter.use("/clause-rewrites", clauseRewritesRouter);
 apiRouter.use("/reports", reportsRouter);
 apiRouter.use("/exports", exportsRouter);
 apiRouter.use("/chat", chatRouter);

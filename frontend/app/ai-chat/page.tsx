@@ -300,7 +300,7 @@ function ClauseReference({ message }: { message: ChatMessage }) {
   );
 }
 
-function ReferenceList({ references }: { references?: ChatCitation[] }) {
+function ReferenceList({ references, documentId }: { references?: ChatCitation[]; documentId?: string | null }) {
   if (!references || references.length === 0) {
     return null;
   }
@@ -311,6 +311,20 @@ function ReferenceList({ references }: { references?: ChatCitation[] }) {
       <div className="mt-2 space-y-2">
         {references.slice(0, 5).map((reference, index) => (
           <div key={`${reference.type}-${reference.title}-${index}`} className="border-t border-[#2C3632]/60 pt-2 first:border-t-0 first:pt-0">
+            {(() => {
+              const clauseId = typeof reference.metadata?.clauseId === "string" ? reference.metadata.clauseId : null;
+
+              return documentId && clauseId ? (
+                <Link
+                  href={`/contracts/${documentId}/clauses?clauseId=${clauseId}&rewrite=true`}
+                  className="mt-2 inline-flex items-center text-sm font-semibold text-[#D9B76E] transition hover:text-[#F0D89B]"
+                  aria-label={`Review and rewrite ${reference.title}`}
+                >
+                  Review / Rewrite this clause
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </Link>
+              ) : null;
+            })()}
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={reference.type === "RISK" ? "high" : reference.type === "CLAUSE" ? "info" : "medium"}>{reference.type}</StatusBadge>
               <p className="text-sm font-semibold text-foreground">{reference.title}</p>
@@ -335,7 +349,7 @@ function GroundingLabel({ message }: { message: ChatMessage }) {
   );
 }
 
-function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; onSuggestedQuestion: (prompt: string) => void }) {
+function ChatBubble({ message, documentId, onSuggestedQuestion }: { message: ChatMessage; documentId?: string | null; onSuggestedQuestion: (prompt: string) => void }) {
   const isUser = message.role === "user";
 
   return (
@@ -364,7 +378,7 @@ function ChatBubble({ message, onSuggestedQuestion }: { message: ChatMessage; on
           {!isUser ? (
             <>
               <ClauseReference message={message} />
-              <ReferenceList references={message.references} />
+              <ReferenceList references={message.references} documentId={documentId} />
               <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#0B0F0E]/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 text-[#A7C957]" aria-hidden="true" />
@@ -670,7 +684,7 @@ export default function AiChatPage() {
                 </div>
               ) : null}
               {messages.map((message) => (
-                <ChatBubble key={message.id} message={message} onSuggestedQuestion={sendPrompt} />
+                <ChatBubble key={message.id} message={message} documentId={activeDocument?.id ?? session?.documentId ?? null} onSuggestedQuestion={sendPrompt} />
               ))}
               {isSending ? <TypingIndicator /> : null}
               <div ref={messagesEndRef} aria-hidden="true" />

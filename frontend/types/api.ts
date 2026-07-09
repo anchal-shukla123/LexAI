@@ -378,8 +378,16 @@ export type ClauseReviewResponse = {
 };
 
 export type ClauseRewriteGoal = "balanced" | "buyer_friendly" | "seller_friendly" | "shorter" | "stronger_protection";
+export type ClauseRewriteStatus = "DRAFT" | "SAVED" | "ACCEPTED" | "REJECTED";
 
 export type ClauseRewriteResponse = {
+  id: string | null;
+  documentId: string;
+  clauseFindingId: string;
+  workspaceId: string;
+  createdById: string | null;
+  goal: ClauseRewriteGoal | string;
+  userInstruction: string | null;
   originalClause: {
     id: string;
     title: string;
@@ -391,5 +399,14 @@ export type ClauseRewriteResponse = {
   keyChanges: string[];
   negotiationPoints: string[];
   riskReductionNotes: string[];
+  status: ClauseRewriteStatus;
+  createdAt: string;
+  updatedAt: string;
   disclaimer: string;
+};
+
+export type ClauseRewriteHistoryResponse = {
+  documentId: string;
+  clauseId: string;
+  rewrites: ClauseRewriteResponse[];
 };

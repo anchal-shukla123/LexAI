@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
   Timer,
+  Wand2,
   WalletCards
 } from "lucide-react";
 import Link from "next/link";
@@ -46,8 +47,8 @@ type ReportContent = {
   };
   heatmap?: Array<{ label: string; value: number; signal: string }>;
   findings?: Array<{ title: string; severity: string; finding: string; action: string }>;
-  topRisks?: Array<{ title: string; severity: string; finding: string; action: string; detectionMethod?: string; ruleId?: string | null; linkedClauseTitle?: string | null }>;
-  affectedClauses?: Array<{ title: string; category: string; summary?: string; excerpt?: string; confidence?: number; extractionMethod?: string; linkedRiskTitles?: string[] }>;
+  topRisks?: Array<{ id?: string; title: string; severity: string; finding: string; action: string; detectionMethod?: string; ruleId?: string | null; linkedClauseId?: string | null; linkedClauseTitle?: string | null }>;
+  affectedClauses?: Array<{ id?: string; title: string; category: string; summary?: string; excerpt?: string; confidence?: number; extractionMethod?: string; linkedRiskTitles?: string[] }>;
   recommendedActions?: Array<{ title: string; description: string; priority: number; linkedRiskTitle?: string | null; linkedClauseTitle?: string | null }>;
   recommendedRedlines?: Array<{ title: string; change: string; why: string; priority: string; linkedRiskTitle?: string | null; linkedClauseTitle?: string | null }>;
   negotiationChecklist?: string[];
@@ -147,6 +148,24 @@ const fallbackRedlines = [
     priority: "Medium"
   }
 ];
+
+type FindingCard = {
+  title: string;
+  severity: string;
+  finding: string;
+  action: string;
+  linkedClauseId: string | null;
+};
+
+type ReportClauseCard = {
+  id: string | null;
+  title: string;
+  status: string;
+  risk: string;
+  summary: string;
+  icon: typeof Scale;
+  linkedRiskTitles: string[];
+};
 
 function Badge({ children, tone }: { children: React.ReactNode; tone: "low" | "medium" | "high" | "ai" | "info" | "success" }) {
   const tones = {
@@ -316,19 +335,20 @@ export default function DemoReportPage() {
   const content = useMemo<ReportContent>(() => (isReportContent(report?.content) ? report.content : {}), [report]);
   const riskScore = content.riskScore ?? report?.riskScoreSnapshot ?? report?.document.riskScore ?? (canRenderDemo ? 74 : 0);
   const riskLevel = content.riskLevel ?? (riskScore >= 80 ? "High" : riskScore >= 50 ? "Medium" : "Low");
-  const sourceLabel = content.sourceType ?? (content.fallbackUsed ? "MOCK fallback" : report ? "RULE_BASED report" : "Demo report");
+  const sourceLabel = content.sourceType ?? (content.fallbackUsed ? "MOCK fallback" : report ? "Rule-based real analysis" : "Demo report");
   const heatmapCells = content.heatmap?.length ? content.heatmap : canRenderDemo ? fallbackHeatmapCells : [];
-  const findings = content.topRisks?.length
+  const findings: FindingCard[] = content.topRisks?.length
     ? content.topRisks.map((risk) => ({
         title: risk.title,
         severity: risk.severity,
         finding: `${risk.finding}${risk.ruleId ? ` Rule: ${risk.ruleId}.` : ""}${risk.detectionMethod ? ` Source: ${risk.detectionMethod}.` : ""}${risk.linkedClauseTitle ? ` Clause: ${risk.linkedClauseTitle}.` : ""}`,
-        action: risk.action
+        action: risk.action,
+        linkedClauseId: risk.linkedClauseId ?? null
       }))
     : content.findings?.length
-      ? content.findings
+      ? content.findings.map((finding) => ({ ...finding, linkedClauseId: null }))
       : canRenderDemo
-        ? fallbackFindings
+        ? fallbackFindings.map((finding) => ({ ...finding, linkedClauseId: null }))
         : [];
   const redlines = content.recommendedRedlines?.length
     ? content.recommendedRedlines
@@ -342,9 +362,10 @@ export default function DemoReportPage() {
       : canRenderDemo
         ? fallbackRedlines
         : [];
-  const reportClauses = content.affectedClauses?.length
+  const reportClauses: ReportClauseCard[] = content.affectedClauses?.length
     ? content.affectedClauses.map((clause) => ({
         title: clause.title,
+        id: clause.id ?? null,
         status: clause.extractionMethod ?? "RULE_BASED",
         risk: clause.linkedRiskTitles?.length ? "High" : "Medium",
         summary: clause.summary ?? clause.excerpt ?? "Clause extracted from the analyzed document.",
@@ -352,12 +373,14 @@ export default function DemoReportPage() {
         linkedRiskTitles: clause.linkedRiskTitles ?? []
       }))
     : canRenderDemo
-      ? clauses.map((clause) => ({ ...clause, linkedRiskTitles: [] }))
+      ? clauses.map((clause) => ({ ...clause, id: null, linkedRiskTitles: [] }))
       : [];
   const negotiationChecklist = content.negotiationChecklist?.length
     ? content.negotiationChecklist
     : redlines.map((redline) => `${redline.priority} priority: ${redline.title}`);
   const clauseReviewHref = report?.documentId ? `/contracts/${report.documentId}/clauses` : "/contracts/demo-analysis";
+  const rewriteClauseHref = (clauseId?: string | null) =>
+    report?.documentId && clauseId ? `/contracts/${report.documentId}/clauses?clauseId=${clauseId}&rewrite=true` : clauseReviewHref;
   const processingDetails = [
     { label: "Finding source", value: isFallback ? "Frontend demo" : sourceLabel, icon: Bot, progress: 100 },
     { label: "Confidence", value: `${content.metrics?.confidence ?? (canRenderDemo ? 91 : 0)}%`, icon: ShieldCheck, progress: content.metrics?.confidence ?? (canRenderDemo ? 91 : 0) },
@@ -620,6 +643,14 @@ export default function DemoReportPage() {
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#D9B76E]">Recommended action</p>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.action}</p>
                     </div>
+                    {report?.documentId && finding.linkedClauseId ? (
+                      <Button asChild size="sm" variant="outline" className="mt-4">
+                        <Link href={rewriteClauseHref(finding.linkedClauseId)} aria-label={`Rewrite clause linked to ${finding.title}`}>
+                          <Wand2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Rewrite Clause
+                        </Link>
+                      </Button>
+                    ) : null}
                   </article>
                   ))}
                 </div>
@@ -654,6 +685,14 @@ export default function DemoReportPage() {
                         <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#D9B76E]">
                           Linked risks: {clause.linkedRiskTitles.join(", ")}
                         </p>
+                      ) : null}
+                      {report?.documentId && clause.id ? (
+                        <Button asChild size="sm" variant="outline" className="mt-4">
+                          <Link href={rewriteClauseHref(clause.id)} aria-label={`Rewrite ${clause.title} clause`}>
+                            <Wand2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                            Rewrite Clause
+                          </Link>
+                        </Button>
                       ) : null}
                     </article>
                   );

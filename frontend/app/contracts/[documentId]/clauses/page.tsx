@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clipboard,
+  Copy,
   FileText,
   Gavel,
   Loader2,
@@ -14,18 +15,19 @@ import {
   Scale,
   Search,
   ShieldCheck,
+  Trash2,
   WalletCards,
   Wand2
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { postJson, safeFetch } from "@/lib/api-client";
-import type { ClauseReviewItem, ClauseReviewResponse, ClauseRewriteGoal, ClauseRewriteResponse, DocumentDetail } from "@/types/api";
+import type { ClauseReviewItem, ClauseReviewResponse, ClauseRewriteGoal, ClauseRewriteHistoryResponse, ClauseRewriteResponse, ClauseRewriteStatus, DocumentDetail } from "@/types/api";
 
 type BadgeTone = "low" | "medium" | "high" | "info" | "success" | "warning";
 
@@ -62,6 +64,13 @@ function statusLabel(status: string) {
   if (status === "NEEDS_NEGOTIATION") return "Needs negotiation";
   if (status === "FALLBACK_REVIEW") return "Fallback review";
   return "Review recommended";
+}
+
+function rewriteStatusTone(status?: ClauseRewriteStatus): BadgeTone {
+  if (status === "ACCEPTED") return "success";
+  if (status === "REJECTED") return "high";
+  if (status === "SAVED") return "info";
+  return "warning";
 }
 
 function clauseIconFor(value: string) {
@@ -122,9 +131,14 @@ export default function ClauseReviewPage() {
   const [rewriteGoal, setRewriteGoal] = useState<ClauseRewriteGoal>("balanced");
   const [userInstruction, setUserInstruction] = useState("");
   const [rewriteResult, setRewriteResult] = useState<ClauseRewriteResponse | null>(null);
+  const [rewriteHistory, setRewriteHistory] = useState<ClauseRewriteResponse[]>([]);
+  const [isLoadingRewrites, setIsLoadingRewrites] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
+  const [activeRewriteId, setActiveRewriteId] = useState<string | null>(null);
+  const [statusUpdateId, setStatusUpdateId] = useState<string | null>(null);
   const [rewriteError, setRewriteError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const autoRewriteStartedRef = useRef(false);
   const [filters, setFilters] = useState({
     category: "",
     riskLevel: "",
@@ -154,6 +168,8 @@ export default function ClauseReviewPage() {
           setReview(clauseReview);
           setSelectedClauseId((current) => {
             if (current && clauseReview.items.some((item) => item.id === current)) return current;
+            const requestedClauseId = new URLSearchParams(window.location.search).get("clauseId");
+            if (requestedClauseId && clauseReview.items.some((item) => item.id === requestedClauseId)) return requestedClauseId;
             return clauseReview.items[0]?.id ?? null;
           });
         }
@@ -182,10 +198,97 @@ export default function ClauseReviewPage() {
   const analysisHref = `/contracts/demo-analysis?documentId=${documentId}`;
   const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
   const canRewriteSelectedClause = selectedClause ? selectedClause.extractionMethod !== "MOCK" : false;
-  const visibleRewriteResult = rewriteResult?.originalClause.id === selectedClause?.id ? rewriteResult : null;
+  const visibleRewriteResult =
+    (activeRewriteId ? rewriteHistory.find((rewrite) => rewrite.id === activeRewriteId) : null) ??
+    (rewriteResult?.originalClause.id === selectedClause?.id ? rewriteResult : null) ??
+    rewriteHistory[0] ??
+    null;
+
+  useEffect(() => {
+    if (!selectedClause) {
+      return;
+    }
+
+    let isMounted = true;
+    const controller = new AbortController();
+    const clauseId = selectedClause.id;
+
+    async function loadRewriteHistory() {
+      setIsLoadingRewrites(true);
+      setRewriteError("");
+
+      try {
+        const result = await safeFetch<ClauseRewriteHistoryResponse>(`/documents/${documentId}/clauses/${clauseId}/rewrites`, {
+          signal: controller.signal
+        });
+
+        if (isMounted) {
+          setRewriteHistory(result.rewrites);
+          setActiveRewriteId((current) => {
+            if (current && result.rewrites.some((rewrite) => rewrite.id === current)) return current;
+            return result.rewrites[0]?.id ?? null;
+          });
+        }
+      } catch (error) {
+        if (isMounted) {
+          setRewriteHistory([]);
+          setActiveRewriteId(null);
+          setRewriteError(error instanceof Error ? error.message : "Unable to load rewrite history.");
+        }
+      } finally {
+        if (isMounted) setIsLoadingRewrites(false);
+      }
+    }
+
+    void loadRewriteHistory();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [documentId, selectedClause]);
+
+  useEffect(() => {
+    if (!selectedClause || autoRewriteStartedRef.current || isLoading || isLoadingRewrites || !canRewriteSelectedClause || rewriteHistory.length > 0) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("rewrite") !== "true" || params.get("clauseId") !== selectedClause.id) {
+      return;
+    }
+
+    const clauseForRoute = selectedClause;
+    autoRewriteStartedRef.current = true;
+
+    async function createRewriteFromRoute() {
+      setIsRewriting(true);
+      setRewriteError("");
+      setCopyMessage("");
+      try {
+        const result = await postJson<ClauseRewriteResponse>(`/documents/${documentId}/clauses/${clauseForRoute.id}/rewrite`, {
+          goal: rewriteGoal,
+          userInstruction: userInstruction.trim() || undefined,
+          save: true
+        });
+        setRewriteResult(result);
+        setRewriteHistory((current) => [result, ...current.filter((rewrite) => rewrite.id !== result.id)]);
+        setActiveRewriteId(result.id);
+      } catch (error) {
+        setRewriteError(error instanceof Error ? error.message : "Unable to rewrite this clause.");
+        setRewriteResult(null);
+      } finally {
+        setIsRewriting(false);
+      }
+    }
+
+    void createRewriteFromRoute();
+  }, [canRewriteSelectedClause, documentId, isLoading, isLoadingRewrites, rewriteGoal, rewriteHistory.length, selectedClause, userInstruction]);
 
   function selectClause(clauseId: string) {
     setSelectedClauseId(clauseId);
+    setRewriteResult(null);
+    setActiveRewriteId(null);
     setRewriteError("");
     setCopyMessage("");
   }
@@ -200,9 +303,12 @@ export default function ClauseReviewPage() {
     try {
       const result = await postJson<ClauseRewriteResponse>(`/documents/${documentId}/clauses/${selectedClause.id}/rewrite`, {
         goal: rewriteGoal,
-        userInstruction: userInstruction.trim() || undefined
+        userInstruction: userInstruction.trim() || undefined,
+        save: true
       });
       setRewriteResult(result);
+      setRewriteHistory((current) => [result, ...current.filter((rewrite) => rewrite.id !== result.id)]);
+      setActiveRewriteId(result.id);
     } catch (error) {
       setRewriteError(error instanceof Error ? error.message : "Unable to rewrite this clause.");
       setRewriteResult(null);
@@ -212,16 +318,64 @@ export default function ClauseReviewPage() {
   }
 
   async function copyRewrittenClause() {
+    await copyClauseText("rewritten");
+  }
+
+  async function copyClauseText(kind: "original" | "rewritten") {
     if (!visibleRewriteResult) return;
 
     try {
-      await window.navigator.clipboard.writeText(visibleRewriteResult.rewrittenClause);
-      setCopyMessage("Rewritten clause copied.");
+      await window.navigator.clipboard.writeText(kind === "original" ? visibleRewriteResult.originalClause.text : visibleRewriteResult.rewrittenClause);
+      setCopyMessage(kind === "original" ? "Original clause copied." : "Rewritten clause copied.");
     } catch {
-      setCopyMessage("Copy failed. Select the rewritten clause text and copy it manually.");
+      setCopyMessage("Copy failed. Select the clause text and copy it manually.");
     }
 
     window.setTimeout(() => setCopyMessage(""), 2600);
+  }
+
+  async function updateRewriteStatus(status: ClauseRewriteStatus) {
+    if (!visibleRewriteResult?.id) return;
+
+    setStatusUpdateId(visibleRewriteResult.id);
+    setRewriteError("");
+
+    try {
+      const result = await safeFetch<ClauseRewriteResponse>(`/clause-rewrites/${visibleRewriteResult.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status })
+      });
+      setRewriteResult(result);
+      setRewriteHistory((current) => current.map((rewrite) => (rewrite.id === result.id ? result : rewrite)));
+      setActiveRewriteId(result.id);
+    } catch (error) {
+      setRewriteError(error instanceof Error ? error.message : "Unable to update rewrite status.");
+    } finally {
+      setStatusUpdateId(null);
+    }
+  }
+
+  async function deleteDraftRewrite() {
+    if (!visibleRewriteResult?.id) return;
+
+    setStatusUpdateId(visibleRewriteResult.id);
+    setRewriteError("");
+
+    try {
+      await safeFetch<{ id: string; deleted: boolean }>(`/clause-rewrites/${visibleRewriteResult.id}`, {
+        method: "DELETE"
+      });
+      setRewriteHistory((current) => current.filter((rewrite) => rewrite.id !== visibleRewriteResult.id));
+      setRewriteResult(null);
+      setActiveRewriteId(rewriteHistory.find((rewrite) => rewrite.id !== visibleRewriteResult.id)?.id ?? null);
+    } catch (error) {
+      setRewriteError(error instanceof Error ? error.message : "Unable to delete draft rewrite.");
+    } finally {
+      setStatusUpdateId(null);
+    }
   }
 
   if (isLoading && !review) {
@@ -272,7 +426,7 @@ export default function ClauseReviewPage() {
               <div className="mb-3 flex flex-wrap gap-2">
                 <StatusBadge tone="info">Clause review</StatusBadge>
                 <StatusBadge tone={review?.items.some((item) => item.extractionMethod === "MOCK") ? "warning" : "success"}>
-                  {review?.items.some((item) => item.extractionMethod === "MOCK") ? "MOCK fallback present" : "RULE_BASED clauses"}
+                  {review?.items.some((item) => item.extractionMethod === "MOCK") ? "MOCK fallback present" : "Rule-based real analysis"}
                 </StatusBadge>
                 <StatusBadge tone="info">{clauses.length} clauses</StatusBadge>
               </div>
@@ -555,9 +709,46 @@ export default function ClauseReviewPage() {
 
                   {visibleRewriteResult ? (
                     <div className="mt-5 space-y-5">
+                      <div className="rounded-xl border border-[#2C3632] bg-[#151C19]/70 p-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-semibold text-foreground">Latest Rewrite</h4>
+                              <StatusBadge tone={rewriteStatusTone(visibleRewriteResult.status)}>{titleCase(visibleRewriteResult.status)}</StatusBadge>
+                              <StatusBadge tone="info">{titleCase(String(visibleRewriteResult.goal))}</StatusBadge>
+                            </div>
+                            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                              Created {new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(visibleRewriteResult.createdAt))}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => updateRewriteStatus("SAVED")} disabled={!visibleRewriteResult.id || statusUpdateId === visibleRewriteResult.id}>
+                              Save
+                            </Button>
+                            <Button type="button" size="sm" onClick={() => updateRewriteStatus("ACCEPTED")} disabled={!visibleRewriteResult.id || statusUpdateId === visibleRewriteResult.id}>
+                              Mark Accepted
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => updateRewriteStatus("REJECTED")} disabled={!visibleRewriteResult.id || statusUpdateId === visibleRewriteResult.id}>
+                              Reject
+                            </Button>
+                            {visibleRewriteResult.status === "DRAFT" ? (
+                              <Button type="button" size="sm" variant="ghost" onClick={deleteDraftRewrite} disabled={!visibleRewriteResult.id || statusUpdateId === visibleRewriteResult.id} aria-label="Delete draft rewrite">
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div className="rounded-xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4">
-                          <h4 className="text-sm font-semibold text-foreground">Original Clause</h4>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <h4 className="text-sm font-semibold text-foreground">Original Clause</h4>
+                            <Button type="button" size="sm" variant="outline" onClick={() => copyClauseText("original")}>
+                              <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                              Copy
+                            </Button>
+                          </div>
                           <p className="mt-3 max-h-80 overflow-auto text-sm leading-7 text-muted-foreground">{visibleRewriteResult.originalClause.text}</p>
                         </div>
                         <div className="rounded-xl border border-[#A7C957]/30 bg-[#A7C957]/10 p-4">
@@ -574,7 +765,7 @@ export default function ClauseReviewPage() {
                       </div>
 
                       <div className="rounded-xl border border-[#2C3632] bg-[#151C19]/70 p-4">
-                        <h4 className="text-sm font-semibold text-foreground">Rewrite Strategy</h4>
+                        <h4 className="text-sm font-semibold text-foreground">What Changed and Why</h4>
                         <p className="mt-2 text-sm leading-6 text-muted-foreground">{visibleRewriteResult.rewriteStrategy}</p>
                       </div>
 
@@ -608,6 +799,39 @@ export default function ClauseReviewPage() {
                       <p className="rounded-xl border border-[#D9B76E]/30 bg-[#D9B76E]/10 p-4 text-sm leading-6 text-[#F0D89B]">{visibleRewriteResult.disclaimer}</p>
                     </div>
                   ) : null}
+
+                  <div className="mt-5 rounded-xl border border-[#2C3632] bg-[#0B0F0E]/55 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <h4 className="text-sm font-semibold text-foreground">Rewrite History</h4>
+                      {isLoadingRewrites ? <StatusBadge tone="info">Loading</StatusBadge> : <StatusBadge tone="info">{rewriteHistory.length} saved</StatusBadge>}
+                    </div>
+                    {rewriteHistory.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {rewriteHistory.map((rewrite) => (
+                          <button
+                            key={rewrite.id ?? `${rewrite.createdAt}-${rewrite.goal}`}
+                            type="button"
+                            onClick={() => setActiveRewriteId(rewrite.id)}
+                            className={`w-full rounded-lg border px-3 py-2 text-left transition ${visibleRewriteResult?.id === rewrite.id ? "border-[#D9B76E]/45 bg-[#D9B76E]/10" : "border-[#2C3632] bg-[#151C19]/80 hover:border-[#6BAA9C]/40"}`}
+                          >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="text-sm font-medium text-foreground">{titleCase(String(rewrite.goal))}</span>
+                              <span className="flex flex-wrap gap-2">
+                                <StatusBadge tone={rewriteStatusTone(rewrite.status)}>{titleCase(rewrite.status)}</StatusBadge>
+                                <span className="text-xs leading-7 text-muted-foreground">
+                                  {new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(rewrite.createdAt))}
+                                </span>
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        No rewrite history yet. Generate a rewrite to save a draft for this clause.
+                      </p>
+                    )}
+                  </div>
                 </section>
               </article>
             ) : (

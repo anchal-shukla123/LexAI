@@ -296,6 +296,7 @@ function scoreReferences(question: string, data: Awaited<ReturnType<typeof loadG
           riskLevel: risk.riskLevel,
           ruleId: risk.ruleId,
           category: risk.category,
+          clauseId: risk.clauseFindingId,
           clauseTitle: risk.clauseFinding?.title ?? null,
           detectionMethod: risk.detectionMethod
         }
@@ -317,6 +318,7 @@ function scoreReferences(question: string, data: Awaited<ReturnType<typeof loadG
         score,
         priority: referencePriority.CLAUSE,
         metadata: {
+          clauseId: clause.id,
           category: clause.category,
           extractionMethod: clause.extractionMethod,
           pageNumber: clause.pageNumber

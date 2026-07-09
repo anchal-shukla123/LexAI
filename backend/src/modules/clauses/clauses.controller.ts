@@ -6,7 +6,7 @@ import { documentParamsSchema } from "../documents/documents.validation.js";
 import { getRequestContext } from "../shared/request-context.js";
 import { parseOrThrow } from "../shared/validation.js";
 import { extractAndStoreClauses, getClauseReview, listClauseFindings } from "./clause-extraction.service.js";
-import { rewriteClause } from "./clause-rewrite.service.js";
+import { deleteDraftClauseRewrite, listClauseRewrites, rewriteClause, updateClauseRewriteStatus } from "./clause-rewrite.service.js";
 
 const clausesQuerySchema = z
   .object({
@@ -59,7 +59,20 @@ const clauseRewriteParamsSchema = documentParamsSchema.extend({
 const clauseRewriteBodySchema = z
   .object({
     goal: z.enum(["balanced", "buyer_friendly", "seller_friendly", "shorter", "stronger_protection"]),
-    userInstruction: z.string().trim().max(1000).optional()
+    userInstruction: z.string().trim().max(1000).optional(),
+    save: z.boolean().optional()
+  })
+  .strict();
+
+const clauseRewriteStatusParamsSchema = z
+  .object({
+    rewriteId: z.string().min(1)
+  })
+  .strict();
+
+const clauseRewriteStatusBodySchema = z
+  .object({
+    status: z.enum(["DRAFT", "SAVED", "ACCEPTED", "REJECTED"])
   })
   .strict();
 
@@ -101,7 +114,30 @@ export const postRewriteClause: RequestHandler = async (req, res) => {
   const context = await getRequestContext(req);
   const result = await rewriteClause(context, params.documentId, params.clauseId, {
     goal: body.goal,
-    userInstruction: body.userInstruction
+    userInstruction: body.userInstruction,
+    save: body.save
   });
+  sendSuccess(res, result);
+};
+
+export const getClauseRewriteHistory: RequestHandler = async (req, res) => {
+  const params = parseOrThrow(clauseRewriteParamsSchema, req.params);
+  const context = await getRequestContext(req);
+  const result = await listClauseRewrites(context, params.documentId, params.clauseId);
+  sendSuccess(res, result);
+};
+
+export const patchClauseRewrite: RequestHandler = async (req, res) => {
+  const params = parseOrThrow(clauseRewriteStatusParamsSchema, req.params);
+  const body = parseOrThrow(clauseRewriteStatusBodySchema, req.body);
+  const context = await getRequestContext(req);
+  const result = await updateClauseRewriteStatus(context, params.rewriteId, body.status);
+  sendSuccess(res, result);
+};
+
+export const deleteClauseRewrite: RequestHandler = async (req, res) => {
+  const params = parseOrThrow(clauseRewriteStatusParamsSchema, req.params);
+  const context = await getRequestContext(req);
+  const result = await deleteDraftClauseRewrite(context, params.rewriteId);
   sendSuccess(res, result);
 };

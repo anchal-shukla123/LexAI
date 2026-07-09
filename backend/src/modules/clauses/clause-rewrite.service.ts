@@ -1,4 +1,4 @@
-import type { ClauseCategory } from "@prisma/client";
+import type { ClauseCategory, ClauseRewriteStatus } from "@prisma/client";
 
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/app-error.js";
@@ -39,6 +39,7 @@ type RewriteDraft = {
 };
 
 const disclaimer = "Rule-based drafting aid only. LexAI does not provide legal advice; have qualified counsel review this language before use.";
+const validStatuses: ClauseRewriteStatus[] = ["DRAFT", "SAVED", "ACCEPTED", "REJECTED"];
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -466,11 +467,64 @@ function rewriteForCategory(input: RewriteContext): RewriteDraft {
   return generalRewrite(input);
 }
 
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function serializeRewrite(rewrite: {
+  id: string;
+  documentId: string;
+  clauseFindingId: string;
+  workspaceId: string;
+  createdById: string | null;
+  goal: string;
+  userInstruction: string | null;
+  originalClause: string;
+  rewrittenClause: string;
+  rewriteStrategy: string;
+  keyChanges: unknown;
+  negotiationPoints: unknown;
+  riskReductionNotes: unknown;
+  status: ClauseRewriteStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  clauseFinding?: {
+    id: string;
+    title: string;
+    category: ClauseCategory;
+  };
+}) {
+  return {
+    id: rewrite.id,
+    documentId: rewrite.documentId,
+    clauseFindingId: rewrite.clauseFindingId,
+    workspaceId: rewrite.workspaceId,
+    createdById: rewrite.createdById,
+    goal: rewrite.goal,
+    userInstruction: rewrite.userInstruction,
+    originalClause: {
+      id: rewrite.clauseFinding?.id ?? rewrite.clauseFindingId,
+      title: rewrite.clauseFinding?.title ?? "Clause",
+      category: rewrite.clauseFinding?.category ?? "OTHER",
+      text: rewrite.originalClause
+    },
+    rewrittenClause: rewrite.rewrittenClause,
+    rewriteStrategy: rewrite.rewriteStrategy,
+    keyChanges: stringArray(rewrite.keyChanges),
+    negotiationPoints: stringArray(rewrite.negotiationPoints),
+    riskReductionNotes: stringArray(rewrite.riskReductionNotes),
+    status: rewrite.status,
+    createdAt: rewrite.createdAt.toISOString(),
+    updatedAt: rewrite.updatedAt.toISOString(),
+    disclaimer
+  };
+}
+
 export async function rewriteClause(
   context: RequestContext,
   documentId: string,
   clauseId: string,
-  input: { goal: RewriteGoal; userInstruction?: string }
+  input: { goal: RewriteGoal; userInstruction?: string; save?: boolean }
 ) {
   const clause = await prisma.clauseFinding.findFirst({
     where: {
@@ -487,6 +541,12 @@ export async function rewriteClause(
       category: true,
       extractionMethod: true,
       sourceText: true,
+      documentId: true,
+      document: {
+        select: {
+          workspaceId: true
+        }
+      },
       riskFindings: {
         orderBy: [{ riskLevel: "desc" }, { confidence: "desc" }, { createdAt: "asc" }],
         select: {
@@ -527,18 +587,175 @@ export async function rewriteClause(
     userInstruction: input.userInstruction
   });
 
-  return {
-    originalClause: {
-      id: clause.id,
-      title: clause.title,
-      category: clause.category,
-      text: clause.sourceText
+  if (input.save === false) {
+    return {
+      id: null,
+      documentId: clause.documentId,
+      clauseFindingId: clause.id,
+      workspaceId: clause.document.workspaceId,
+      createdById: null,
+      goal: input.goal,
+      userInstruction: input.userInstruction ?? null,
+      originalClause: {
+        id: clause.id,
+        title: clause.title,
+        category: clause.category,
+        text: clause.sourceText
+      },
+      rewrittenClause: draft.rewrittenClause,
+      rewriteStrategy: draft.rewriteStrategy,
+      keyChanges: draft.keyChanges,
+      negotiationPoints: draft.negotiationPoints,
+      riskReductionNotes: draft.riskReductionNotes,
+      status: "DRAFT" as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      disclaimer
+    };
+  }
+
+  const rewrite = await prisma.clauseRewrite.create({
+    data: {
+      documentId: clause.documentId,
+      clauseFindingId: clause.id,
+      workspaceId: clause.document.workspaceId,
+      createdById: context.mode === "auth" ? context.user.id : null,
+      goal: input.goal,
+      userInstruction: input.userInstruction ?? null,
+      originalClause: clause.sourceText,
+      rewrittenClause: draft.rewrittenClause,
+      rewriteStrategy: draft.rewriteStrategy,
+      keyChanges: draft.keyChanges,
+      negotiationPoints: draft.negotiationPoints,
+      riskReductionNotes: draft.riskReductionNotes,
+      status: "DRAFT"
     },
-    rewrittenClause: draft.rewrittenClause,
-    rewriteStrategy: draft.rewriteStrategy,
-    keyChanges: draft.keyChanges,
-    negotiationPoints: draft.negotiationPoints,
-    riskReductionNotes: draft.riskReductionNotes,
-    disclaimer
+    include: {
+      clauseFinding: {
+        select: {
+          id: true,
+          title: true,
+          category: true
+        }
+      }
+    }
+  });
+
+  return serializeRewrite(rewrite);
+}
+
+export async function listClauseRewrites(context: RequestContext, documentId: string, clauseId: string) {
+  const clause = await prisma.clauseFinding.findFirst({
+    where: {
+      id: clauseId,
+      documentId,
+      document: {
+        workspaceId: context.workspace.id,
+        deletedAt: null
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!clause) {
+    throw new AppError("NOT_FOUND", "Clause not found for this document.");
+  }
+
+  const rewrites = await prisma.clauseRewrite.findMany({
+    where: {
+      documentId,
+      clauseFindingId: clauseId,
+      workspaceId: context.workspace.id
+    },
+    orderBy: [{ createdAt: "desc" }],
+    include: {
+      clauseFinding: {
+        select: {
+          id: true,
+          title: true,
+          category: true
+        }
+      }
+    }
+  });
+
+  return {
+    documentId,
+    clauseId,
+    rewrites: rewrites.map(serializeRewrite)
+  };
+}
+
+export async function updateClauseRewriteStatus(context: RequestContext, rewriteId: string, status: ClauseRewriteStatus) {
+  if (!validStatuses.includes(status)) {
+    throw new AppError("VALIDATION_ERROR", "Unsupported rewrite status.");
+  }
+
+  const existing = await prisma.clauseRewrite.findFirst({
+    where: {
+      id: rewriteId,
+      workspaceId: context.workspace.id,
+      document: {
+        deletedAt: null
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!existing) {
+    throw new AppError("NOT_FOUND", "Clause rewrite not found.");
+  }
+
+  const rewrite = await prisma.clauseRewrite.update({
+    where: { id: rewriteId },
+    data: { status },
+    include: {
+      clauseFinding: {
+        select: {
+          id: true,
+          title: true,
+          category: true
+        }
+      }
+    }
+  });
+
+  return serializeRewrite(rewrite);
+}
+
+export async function deleteDraftClauseRewrite(context: RequestContext, rewriteId: string) {
+  const existing = await prisma.clauseRewrite.findFirst({
+    where: {
+      id: rewriteId,
+      workspaceId: context.workspace.id,
+      document: {
+        deletedAt: null
+      }
+    },
+    select: {
+      id: true,
+      status: true
+    }
+  });
+
+  if (!existing) {
+    throw new AppError("NOT_FOUND", "Clause rewrite not found.");
+  }
+
+  if (existing.status !== "DRAFT") {
+    throw new AppError("CONFLICT", "Only draft clause rewrites can be deleted.");
+  }
+
+  await prisma.clauseRewrite.delete({
+    where: { id: rewriteId }
+  });
+
+  return {
+    id: rewriteId,
+    deleted: true
   };
 }
