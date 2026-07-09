@@ -376,3 +376,20 @@ export type ClauseReviewResponse = {
   categories: Record<string, number>;
   items: ClauseReviewItem[];
 };
+
+export type ClauseRewriteGoal = "balanced" | "buyer_friendly" | "seller_friendly" | "shorter" | "stronger_protection";
+
+export type ClauseRewriteResponse = {
+  originalClause: {
+    id: string;
+    title: string;
+    category: string;
+    text: string;
+  };
+  rewrittenClause: string;
+  rewriteStrategy: string;
+  keyChanges: string[];
+  negotiationPoints: string[];
+  riskReductionNotes: string[];
+  disclaimer: string;
+};

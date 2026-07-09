@@ -6,6 +6,7 @@ import { documentParamsSchema } from "../documents/documents.validation.js";
 import { getRequestContext } from "../shared/request-context.js";
 import { parseOrThrow } from "../shared/validation.js";
 import { extractAndStoreClauses, getClauseReview, listClauseFindings } from "./clause-extraction.service.js";
+import { rewriteClause } from "./clause-rewrite.service.js";
 
 const clausesQuerySchema = z
   .object({
@@ -51,6 +52,17 @@ const clauseReviewQuerySchema = z
   })
   .strict();
 
+const clauseRewriteParamsSchema = documentParamsSchema.extend({
+  clauseId: z.string().min(1)
+});
+
+const clauseRewriteBodySchema = z
+  .object({
+    goal: z.enum(["balanced", "buyer_friendly", "seller_friendly", "shorter", "stronger_protection"]),
+    userInstruction: z.string().trim().max(1000).optional()
+  })
+  .strict();
+
 export const postExtractClauses: RequestHandler = async (req, res) => {
   const params = parseOrThrow(documentParamsSchema, req.params);
   const context = await getRequestContext(req);
@@ -79,6 +91,17 @@ export const getDocumentClauseReview: RequestHandler = async (req, res) => {
     extractionMethod: query.extractionMethod,
     hasRisks: typeof query.hasRisks === "boolean" ? query.hasRisks : undefined,
     search: query.search
+  });
+  sendSuccess(res, result);
+};
+
+export const postRewriteClause: RequestHandler = async (req, res) => {
+  const params = parseOrThrow(clauseRewriteParamsSchema, req.params);
+  const body = parseOrThrow(clauseRewriteBodySchema, req.body);
+  const context = await getRequestContext(req);
+  const result = await rewriteClause(context, params.documentId, params.clauseId, {
+    goal: body.goal,
+    userInstruction: body.userInstruction
   });
   sendSuccess(res, result);
 };

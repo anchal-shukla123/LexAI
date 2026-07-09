@@ -3,8 +3,8 @@
 import {
   AlertTriangle,
   ArrowLeft,
-  BadgeCheck,
   CheckCircle2,
+  Clipboard,
   FileText,
   Gavel,
   Loader2,
@@ -14,7 +14,8 @@ import {
   Scale,
   Search,
   ShieldCheck,
-  WalletCards
+  WalletCards,
+  Wand2
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -23,13 +24,20 @@ import { useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { safeFetch } from "@/lib/api-client";
-import type { ClauseReviewItem, ClauseReviewResponse, DocumentDetail } from "@/types/api";
+import { postJson, safeFetch } from "@/lib/api-client";
+import type { ClauseReviewItem, ClauseReviewResponse, ClauseRewriteGoal, ClauseRewriteResponse, DocumentDetail } from "@/types/api";
 
 type BadgeTone = "low" | "medium" | "high" | "info" | "success" | "warning";
 
 const categoryFilters = ["LIABILITY", "TERMINATION", "PAYMENT", "CONFIDENTIALITY", "DATA_PROTECTION", "SECURITY"];
 const riskFilters = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+const rewriteGoals: Array<{ value: ClauseRewriteGoal; label: string }> = [
+  { value: "balanced", label: "Balanced" },
+  { value: "buyer_friendly", label: "Buyer friendly" },
+  { value: "seller_friendly", label: "Seller friendly" },
+  { value: "shorter", label: "Shorter" },
+  { value: "stronger_protection", label: "Stronger protection" }
+];
 
 function titleCase(value: string) {
   return value
@@ -111,6 +119,12 @@ export default function ClauseReviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const [rewriteGoal, setRewriteGoal] = useState<ClauseRewriteGoal>("balanced");
+  const [userInstruction, setUserInstruction] = useState("");
+  const [rewriteResult, setRewriteResult] = useState<ClauseRewriteResponse | null>(null);
+  const [isRewriting, setIsRewriting] = useState(false);
+  const [rewriteError, setRewriteError] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
   const [filters, setFilters] = useState({
     category: "",
     riskLevel: "",
@@ -167,6 +181,48 @@ export default function ClauseReviewPage() {
   const chatHref = `/ai-chat?documentId=${documentId}`;
   const analysisHref = `/contracts/demo-analysis?documentId=${documentId}`;
   const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
+  const canRewriteSelectedClause = selectedClause ? selectedClause.extractionMethod !== "MOCK" : false;
+  const visibleRewriteResult = rewriteResult?.originalClause.id === selectedClause?.id ? rewriteResult : null;
+
+  function selectClause(clauseId: string) {
+    setSelectedClauseId(clauseId);
+    setRewriteError("");
+    setCopyMessage("");
+  }
+
+  async function rewriteSelectedClause() {
+    if (!selectedClause || !canRewriteSelectedClause) return;
+
+    setIsRewriting(true);
+    setRewriteError("");
+    setCopyMessage("");
+
+    try {
+      const result = await postJson<ClauseRewriteResponse>(`/documents/${documentId}/clauses/${selectedClause.id}/rewrite`, {
+        goal: rewriteGoal,
+        userInstruction: userInstruction.trim() || undefined
+      });
+      setRewriteResult(result);
+    } catch (error) {
+      setRewriteError(error instanceof Error ? error.message : "Unable to rewrite this clause.");
+      setRewriteResult(null);
+    } finally {
+      setIsRewriting(false);
+    }
+  }
+
+  async function copyRewrittenClause() {
+    if (!visibleRewriteResult) return;
+
+    try {
+      await window.navigator.clipboard.writeText(visibleRewriteResult.rewrittenClause);
+      setCopyMessage("Rewritten clause copied.");
+    } catch {
+      setCopyMessage("Copy failed. Select the rewritten clause text and copy it manually.");
+    }
+
+    window.setTimeout(() => setCopyMessage(""), 2600);
+  }
 
   if (isLoading && !review) {
     return (
@@ -315,7 +371,7 @@ export default function ClauseReviewPage() {
                     <button
                       key={clause.id}
                       type="button"
-                      onClick={() => setSelectedClauseId(clause.id)}
+                      onClick={() => selectClause(clause.id)}
                       className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-[#D9B76E]/50 bg-[#D9B76E]/10" : "border-[#2C3632] bg-[#151C19]/70 hover:border-[#6BAA9C]/40"}`}
                     >
                       <div className="flex items-start gap-3">
@@ -434,6 +490,124 @@ export default function ClauseReviewPage() {
                   ) : (
                     <EmptyState message="No specific negotiation action was generated for this clause." />
                   )}
+                </section>
+
+                <section className="rounded-2xl border border-[#2C3632] bg-[#121817]/95 p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <Wand2 className="h-5 w-5 text-[#F0D89B]" aria-hidden="true" />
+                        <h3 className="text-lg font-semibold text-foreground">Clause Rewrite</h3>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        Generate deterministic rewrite language from this real clause, linked risks, and recommendations.
+                      </p>
+                    </div>
+                    <StatusBadge tone={canRewriteSelectedClause ? "info" : "warning"}>
+                      {canRewriteSelectedClause ? "Rule-based rewrite" : "Real clauses only"}
+                    </StatusBadge>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto]">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Rewrite goal</span>
+                      <select
+                        value={rewriteGoal}
+                        onChange={(event) => setRewriteGoal(event.target.value as ClauseRewriteGoal)}
+                        className="h-10 w-full rounded-md border border-[#2C3632] bg-[#0B0F0E] px-3 text-sm text-foreground outline-none transition focus:border-[#D9B76E]/60"
+                        disabled={!canRewriteSelectedClause || isRewriting}
+                      >
+                        {rewriteGoals.map((goal) => (
+                          <option key={goal.value} value={goal.value}>
+                            {goal.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Optional instruction</span>
+                      <Input
+                        value={userInstruction}
+                        onChange={(event) => setUserInstruction(event.target.value)}
+                        placeholder="Example: preserve payment timing but add a dispute process"
+                        disabled={!canRewriteSelectedClause || isRewriting}
+                      />
+                    </label>
+                    <div className="flex items-end">
+                      <Button type="button" onClick={rewriteSelectedClause} disabled={!canRewriteSelectedClause || isRewriting} className="w-full lg:w-auto">
+                        {isRewriting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> : <Wand2 className="mr-2 h-5 w-5" aria-hidden="true" />}
+                        {isRewriting ? "Rewriting" : "Rewrite Clause"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {!canRewriteSelectedClause ? (
+                    <div className="mt-4 rounded-xl border border-[#D9B76E]/35 bg-[#D9B76E]/10 p-4 text-sm leading-6 text-[#F0D89B]">
+                      Rewrite is disabled for fallback MOCK clauses so real document workspaces never show demo rewrite content.
+                    </div>
+                  ) : null}
+
+                  {rewriteError ? (
+                    <div className="mt-4 rounded-xl border border-[#D66A5E]/40 bg-[#D66A5E]/10 p-4 text-sm leading-6 text-[#E89A92]" role="alert">
+                      {rewriteError}
+                    </div>
+                  ) : null}
+
+                  {visibleRewriteResult ? (
+                    <div className="mt-5 space-y-5">
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="rounded-xl border border-[#2C3632] bg-[#0B0F0E]/70 p-4">
+                          <h4 className="text-sm font-semibold text-foreground">Original Clause</h4>
+                          <p className="mt-3 max-h-80 overflow-auto text-sm leading-7 text-muted-foreground">{visibleRewriteResult.originalClause.text}</p>
+                        </div>
+                        <div className="rounded-xl border border-[#A7C957]/30 bg-[#A7C957]/10 p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <h4 className="text-sm font-semibold text-foreground">Rewritten Clause</h4>
+                            <Button type="button" size="sm" variant="outline" onClick={copyRewrittenClause}>
+                              <Clipboard className="mr-2 h-4 w-4" aria-hidden="true" />
+                              Copy
+                            </Button>
+                          </div>
+                          <p className="mt-3 max-h-80 overflow-auto text-sm leading-7 text-muted-foreground">{visibleRewriteResult.rewrittenClause}</p>
+                          {copyMessage ? <p className="mt-3 text-sm font-medium text-[#D7E8A5]" role="status">{copyMessage}</p> : null}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[#2C3632] bg-[#151C19]/70 p-4">
+                        <h4 className="text-sm font-semibold text-foreground">Rewrite Strategy</h4>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">{visibleRewriteResult.rewriteStrategy}</p>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-3">
+                        <div className="rounded-xl border border-[#2C3632] bg-[#151C19]/70 p-4">
+                          <h4 className="text-sm font-semibold text-foreground">Key Changes</h4>
+                          <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+                            {visibleRewriteResult.keyChanges.map((change) => (
+                              <li key={change}>- {change}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl border border-[#2C3632] bg-[#151C19]/70 p-4">
+                          <h4 className="text-sm font-semibold text-foreground">Negotiation Points</h4>
+                          <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+                            {visibleRewriteResult.negotiationPoints.map((point) => (
+                              <li key={point}>- {point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl border border-[#2C3632] bg-[#151C19]/70 p-4">
+                          <h4 className="text-sm font-semibold text-foreground">Risk Reduction</h4>
+                          <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+                            {visibleRewriteResult.riskReductionNotes.map((note) => (
+                              <li key={note}>- {note}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <p className="rounded-xl border border-[#D9B76E]/30 bg-[#D9B76E]/10 p-4 text-sm leading-6 text-[#F0D89B]">{visibleRewriteResult.disclaimer}</p>
+                    </div>
+                  ) : null}
                 </section>
               </article>
             ) : (

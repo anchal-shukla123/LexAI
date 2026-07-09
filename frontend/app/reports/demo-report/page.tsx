@@ -587,8 +587,8 @@ export default function DemoReportPage() {
                   </div>
                   {heatmapCells.length > 0 ? (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {heatmapCells.map((cell) => (
-                      <div key={cell.label} className={`min-h-24 rounded-xl border p-3 ${cell.signal === "high" ? "border-[#D66A5E]/45 bg-[#D66A5E]/15 text-[#E89A92]" : cell.signal === "low" ? "border-[#A7C957]/35 bg-[#A7C957]/10 text-[#D7E8A5]" : "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]"}`}>
+                      {heatmapCells.map((cell, index) => (
+                      <div key={`${cell.label}-${cell.value}-${cell.signal}-${index}`} className={`min-h-24 rounded-xl border p-3 ${cell.signal === "high" ? "border-[#D66A5E]/45 bg-[#D66A5E]/15 text-[#E89A92]" : cell.signal === "low" ? "border-[#A7C957]/35 bg-[#A7C957]/10 text-[#D7E8A5]" : "border-[#C47A4A]/40 bg-[#C47A4A]/10 text-[#E4AD89]"}`}>
                         <p className="text-xs font-medium text-current">{cell.label}</p>
                         <p className="mt-4 text-2xl font-bold leading-none text-foreground">{cell.value}</p>
                         <p className="mt-1 text-xs font-medium text-current">{cell.signal} signal</p>
