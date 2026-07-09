@@ -18,7 +18,16 @@ Built by Anchal Shukla.
 Frontend:
 https://lex-ai-frontend-opal.vercel.app/
 
+GitHub:
+https://github.com/anchal-shukla123/LexAI
+
 The live demo uses hosted backend APIs and demo/test data. The current intelligence layer is deterministic and rule-based for MVP demonstration; it does not call paid LLM APIs.
+
+## Portfolio Snapshot
+
+LexAI is a recruiter-ready legaltech MVP that turns an uploaded contract into a structured review workspace. A user can upload a document, run deterministic rule-based analysis, inspect risky clauses, rewrite and accept safer clause language, generate a negotiation pack, export a PDF report, and ask document-aware chat questions.
+
+The project is designed to show full-stack product engineering rather than a thin prototype: authenticated workspaces, Prisma-backed persistence, real document records, clause/risk/report workflows, rewrite history, health/readiness endpoints, and deployed frontend/backend configuration are all part of the demo.
 
 ## Overview
 
@@ -29,6 +38,7 @@ The current AI layer is deterministic and rule-based. It persists realistic anal
 ## Project Documentation
 
 - [Case Study](docs/CASE_STUDY.md)
+- [Portfolio Case Study](docs/PORTFOLIO_CASE_STUDY.md)
 - [Project Overview](docs/PROJECT_OVERVIEW.md)
 - [Demo Guide](docs/DEMO_GUIDE.md)
 - [Demo Script](docs/DEMO_SCRIPT.md)
@@ -49,10 +59,10 @@ The current AI layer is deterministic and rule-based. It persists realistic anal
 - Report generation and report detail views.
 - Persisted clause rewrites with accepted/rejected/draft status.
 - Negotiation pack and deterministic counterparty email generator.
-- AI chat mock grounding against seeded or uploaded document context.
+- Document-aware chat grounding against seeded or uploaded document context.
 - Documents library with backend-backed data and fallback content.
 - Settings/profile page for workspace presentation.
-- Auth-aware shell with `Signed in` and `Demo Mode` states.
+- Auth-aware shell with `Signed in` and `Demo Auth Mode` states.
 
 ## Tech Stack
 
@@ -96,6 +106,14 @@ Next.js Frontend
 ```
 
 The frontend sends an `Authorization: Bearer <token>` header when `lexai_token` exists. Backend routes that support optional authentication use the authenticated workspace when a valid JWT is provided and fall back to the seeded demo workspace when no token is provided.
+
+### Architecture Summary
+
+- Frontend: Next.js App Router renders the workspace, route-level loading/error states, document pages, report pages, clause review, negotiation pack, upload, auth, and chat.
+- Backend: Express route modules expose auth, documents, analysis, reports, clause rewrites, negotiation, export, health, and readiness APIs.
+- Data: Prisma models persist workspaces, users, documents, document files, analysis jobs, clause findings, risk findings, recommendations, reports, chat sessions, rewrite versions, and export jobs.
+- Intelligence pipeline: deterministic rule-based extraction creates explainable clause, risk, recommendation, rewrite, and negotiation outputs without paid LLM calls.
+- Deployment: Vercel serves the frontend, Render hosts the backend API, and PostgreSQL backs the persisted workspace data.
 
 ## Screens
 
@@ -146,10 +164,21 @@ All screenshots use demo/test data. No real legal documents or secrets are shown
 ### Signup
 ![Signup](assets/screenshots/signup.png)
 
-### Dashboard Demo Mode
-![Dashboard Demo Mode](assets/screenshots/dashboard-demo.png)
+### Dashboard Demo Auth Mode
+![Dashboard Demo Auth Mode](assets/screenshots/dashboard-demo.png)
 
 See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the recommended capture list, file names, and safety notes.
+
+### Screenshot Checklist
+
+- Landing page with live CTA.
+- Authenticated dashboard with real workspace data.
+- Upload page with sample and real upload paths.
+- Analysis report showing rule-based real analysis label.
+- Clause review with saved rewrite history and accepted status.
+- Negotiation pack with counterparty email preview.
+- PDF export action or clear export limitation state.
+- Chat page scoped to a selected document.
 
 ## Backend Capabilities
 
@@ -158,7 +187,7 @@ See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the recommended capture list,
 - Demo workspace fallback for optional-auth routes.
 - Document CRUD.
 - File upload metadata through multer.
-- Mock analysis generation and persistence.
+- Rule-based analysis generation and persistence.
 - Report listing and report detail retrieval.
 - Chat session detail retrieval.
 - Standard success, paginated, and error response envelopes.
@@ -333,26 +362,26 @@ The deployed frontend reads the backend API base URL from `NEXT_PUBLIC_API_URL`.
 
 See [docs/DEPLOYMENT_PLAN.md](docs/DEPLOYMENT_PLAN.md) and [docs/PRODUCTION_ENV.md](docs/PRODUCTION_ENV.md) for the deployment architecture, environment variables, migration strategy, CORS notes, and smoke tests.
 
-Current MVP uses local file storage for uploads. Production upload persistence should use S3-compatible storage.
+Current MVP storage is suitable for portfolio/demo use. Long-lived production upload and export persistence should use S3-compatible object storage.
 
 ## Current Limitations
 
-- AI analysis is mocked and deterministic enough for MVP demonstration.
-- OCR and real LLM reasoning are not implemented yet.
-- Uploaded file storage is local/development-oriented.
+- AI analysis is deterministic and rule-based, not a substitute for attorney review.
+- OCR coverage depends on the deployed backend environment and document quality.
+- Uploaded file and export storage are MVP-oriented and should move to durable object storage for production scale.
 - No refresh-token rotation.
 - No production billing, teams, permissions matrix, or deployment hardening yet.
 - Legal outputs are demo intelligence and should not be treated as legal advice.
 
 ## Roadmap
 
-- Real OCR and document extraction pipeline.
-- LLM-backed clause analysis and chat grounding.
+- More robust OCR and document extraction pipeline.
+- Optional LLM-backed clause analysis and chat grounding behind explicit cost controls.
 - Production object storage for uploaded files and exports.
 - Team roles, invitations, and workspace administration.
 - Report export jobs with durable storage.
 - Audit-ready activity history and admin reporting.
-- Deployment hardening for production environments.
+- Background workers for long-running extraction, export, and email package generation.
 
 ## Suggested GitHub Topics
 

@@ -46,7 +46,7 @@ const processingSteps = [
 const tips = [
   "Use the final executed contract for the most accurate clause map.",
   "Scanned PDFs and screenshots are accepted; OCR support may depend on the backend.",
-  "LexAI stores uploads in the local backend MVP storage when available."
+  "LexAI stores uploads through the backend MVP storage configured for the active environment."
 ];
 
 const formatChips = ["PDF", "DOCX", "PNG", "JPG"];
@@ -364,7 +364,7 @@ export default function UploadPage() {
               <div className="flex items-center gap-2 rounded-full border border-[#2C3632] bg-[#121817] px-4 py-2 text-sm font-medium text-[#A2AAA5]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#A7C957] shadow-[0_0_12px_rgba(167,201,87,0.45)]" aria-hidden="true" />
                 <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                Local MVP secure upload
+                MVP secure upload
               </div>
             </div>
 
@@ -648,7 +648,7 @@ export default function UploadPage() {
                 </div>
                 <h2 className="mt-4 text-lg font-semibold text-foreground">Private by design</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  LexAI uses the local backend MVP for real uploads when available, with a frontend demo fallback if the backend is offline.
+                  LexAI uses backend MVP storage for real uploads, with a clearly labeled sample demo fallback if the backend is offline.
                 </p>
               </CardContent>
             </Card>
@@ -672,7 +672,7 @@ export default function UploadPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium leading-6 text-foreground">{example.name}</p>
-                      <p className="text-xs leading-5 text-muted-foreground">Use sample for mock analysis</p>
+                      <p className="text-xs leading-5 text-muted-foreground">Use clearly labeled sample analysis</p>
                     </div>
                     <span className="flex items-center gap-1 text-xs font-semibold text-[#D9B76E] opacity-90 transition duration-150 ease-out group-hover:translate-x-0.5 group-hover:opacity-100">
                       Use sample
