@@ -381,6 +381,7 @@ export default function DemoReportPage() {
   const clauseReviewHref = report?.documentId ? `/contracts/${report.documentId}/clauses` : "/contracts/demo-analysis";
   const rewriteClauseHref = (clauseId?: string | null) =>
     report?.documentId && clauseId ? `/contracts/${report.documentId}/clauses?clauseId=${clauseId}&rewrite=true` : clauseReviewHref;
+  const negotiationHref = report?.documentId ? `/contracts/${report.documentId}/negotiation` : "/contracts/demo-analysis";
   const processingDetails = [
     { label: "Finding source", value: isFallback ? "Frontend demo" : sourceLabel, icon: Bot, progress: 100 },
     { label: "Confidence", value: `${content.metrics?.confidence ?? (canRenderDemo ? 91 : 0)}%`, icon: ShieldCheck, progress: content.metrics?.confidence ?? (canRenderDemo ? 91 : 0) },
@@ -523,6 +524,14 @@ export default function DemoReportPage() {
                   <Link href={clauseReviewHref} aria-label="Review clauses from this report">
                     <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
                     Review Clauses
+                  </Link>
+                </Button>
+              ) : null}
+              {report?.documentId ? (
+                <Button asChild variant="outline" className="w-full">
+                  <Link href={negotiationHref} aria-label="Open negotiation pack from this report">
+                    <Send className="mr-2 h-5 w-5" aria-hidden="true" />
+                    Negotiation Pack
                   </Link>
                 </Button>
               ) : null}
@@ -786,6 +795,14 @@ export default function DemoReportPage() {
                     <Link href={clauseReviewHref} aria-label="Review clauses from report status panel">
                       <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
                       Review Clauses
+                    </Link>
+                  </Button>
+                ) : null}
+                {report?.documentId ? (
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={negotiationHref} aria-label="Open negotiation pack from report status panel">
+                      <Send className="mr-2 h-5 w-5" aria-hidden="true" />
+                      Negotiation Pack
                     </Link>
                   </Button>
                 ) : null}

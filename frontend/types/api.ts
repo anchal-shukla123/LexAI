@@ -410,3 +410,83 @@ export type ClauseRewriteHistoryResponse = {
   clauseId: string;
   rewrites: ClauseRewriteResponse[];
 };
+
+export type NegotiationEmailTone = "professional" | "firm" | "friendly" | "concise";
+
+export type NegotiationRisk = {
+  id: string;
+  clauseFindingId: string | null;
+  title: string;
+  riskLevel: string;
+  severity: string;
+  category: string | null;
+  description: string;
+  evidence: string | null;
+  impact: string | null;
+  recommendationHint: string | null;
+  confidence: number;
+  detectionMethod: string;
+  ruleId: string | null;
+  clauseTitle: string | null;
+};
+
+export type NegotiationRewrite = {
+  id: string;
+  documentId: string;
+  clauseFindingId: string;
+  goal: string;
+  userInstruction: string | null;
+  originalClause: string;
+  rewrittenClause: string;
+  rewriteStrategy: string;
+  keyChanges: string[];
+  negotiationPoints: string[];
+  riskReductionNotes: string[];
+  status: ClauseRewriteStatus;
+  createdAt: string;
+  updatedAt: string;
+  clause: {
+    id: string;
+    title: string;
+    category: string;
+  };
+};
+
+export type NegotiationPriority = {
+  id: string;
+  title: string;
+  description: string;
+  priority: number;
+  riskFindingId: string | null;
+  linkedRiskTitle: string | null;
+  linkedRiskLevel: string | null;
+  linkedClauseTitle: string | null;
+};
+
+export type NegotiationEmailResponse = {
+  subject: string;
+  emailBody: string;
+  includedRisks: NegotiationRisk[];
+  includedRewrites: NegotiationRewrite[];
+  disclaimer: string;
+};
+
+export type NegotiationPackResponse = {
+  document: {
+    id: string;
+    title: string;
+    riskScore: number | null;
+    summary: string | null;
+  };
+  sourceLabel: string;
+  topRisks: NegotiationRisk[];
+  acceptedRewrites: NegotiationRewrite[];
+  pendingDraftRewrites: NegotiationRewrite[];
+  recommendedNegotiationPriorities: NegotiationPriority[];
+  negotiationChecklist: string[];
+  suggestedCounterpartyEmail: {
+    subject: string;
+    emailBody: string;
+  };
+  legalDisclaimer: string;
+};

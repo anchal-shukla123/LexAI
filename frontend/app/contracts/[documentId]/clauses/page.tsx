@@ -13,6 +13,7 @@ import {
   MessageSquareText,
   RefreshCw,
   Scale,
+  Send,
   Search,
   ShieldCheck,
   Trash2,
@@ -197,6 +198,7 @@ export default function ClauseReviewPage() {
   const chatHref = `/ai-chat?documentId=${documentId}`;
   const analysisHref = `/contracts/demo-analysis?documentId=${documentId}`;
   const reportHref = document?.reports[0]?.id ? `/reports/demo-report?reportId=${document.reports[0].id}` : "/reports/demo-report";
+  const negotiationHref = `/contracts/${documentId}/negotiation`;
   const canRewriteSelectedClause = selectedClause ? selectedClause.extractionMethod !== "MOCK" : false;
   const visibleRewriteResult =
     (activeRewriteId ? rewriteHistory.find((rewrite) => rewrite.id === activeRewriteId) : null) ??
@@ -446,6 +448,12 @@ export default function ClauseReviewPage() {
                 <Link href={reportHref}>
                   <FileText className="mr-2 h-5 w-5" aria-hidden="true" />
                   Open report
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={negotiationHref}>
+                  <Send className="mr-2 h-5 w-5" aria-hidden="true" />
+                  Negotiation Pack
                 </Link>
               </Button>
             </div>
