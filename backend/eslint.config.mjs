@@ -17,7 +17,11 @@ export default [
       },
       globals: {
         console: "readonly",
-        process: "readonly"
+        fetch: "readonly",
+        process: "readonly",
+        Response: "readonly",
+        URL: "readonly",
+        URLSearchParams: "readonly"
       }
     },
     plugins: {

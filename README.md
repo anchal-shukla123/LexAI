@@ -107,6 +107,8 @@ Next.js Frontend
 
 The frontend sends an `Authorization: Bearer <token>` header when `lexai_token` exists. Backend routes that support optional authentication use the authenticated workspace when a valid JWT is provided and fall back to the seeded demo workspace when no token is provided.
 
+Google OAuth starts at `GET /api/v1/auth/google`, completes at `GET /api/v1/auth/google/callback`, and issues the same LexAI JWT used by email/password auth. The backend stores only safe provider metadata and redirects the frontend to `/auth/oauth-success` to finish the normal local-storage session setup.
+
 ### Architecture Summary
 
 - Frontend: Next.js App Router renders the workspace, route-level loading/error states, document pages, report pages, clause review, negotiation pack, upload, auth, and chat.
@@ -237,6 +239,10 @@ JWT_EXPIRES_IN="7d"
 PORT=8000
 API_PREFIX=/api/v1
 CORS_ORIGIN=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
 ```
 
 ### Frontend
@@ -245,6 +251,22 @@ CORS_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+### Google OAuth Setup
+
+Create a Google Cloud OAuth client for a web application. Do not commit the client secret or expose it through `NEXT_PUBLIC_*` variables.
+
+Authorized JavaScript origins:
+
+- Deployed frontend origin, for example `https://lex-ai-frontend-opal.vercel.app`
+- Local frontend origin: `http://localhost:3000`
+
+Authorized redirect URIs:
+
+- Deployed backend callback: `https://<backend-domain>/api/v1/auth/google/callback`
+- Local backend callback: `http://localhost:8000/api/v1/auth/google/callback`
+
+`GOOGLE_OAUTH_REDIRECT_URI` must exactly match one of the authorized redirect URIs in Google Cloud, including protocol, host, path, and trailing slash behavior.
 
 ## Database Setup
 
@@ -328,6 +350,8 @@ Key endpoints:
 
 - `POST /auth/signup`
 - `POST /auth/login`
+- `GET /auth/google`
+- `GET /auth/google/callback`
 - `GET /auth/me`
 - `POST /auth/logout`
 - `GET /demo/dashboard`

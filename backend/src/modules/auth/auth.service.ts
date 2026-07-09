@@ -19,6 +19,17 @@ type LoginInput = {
   password: string;
 };
 
+type CreateUserWithWorkspaceInput = {
+  name: string | null;
+  email: string;
+  workspaceName: string;
+  passwordHash?: string;
+  avatarUrl?: string | null;
+  emailVerifiedAt?: Date | null;
+  provider?: string | null;
+  providerAccountId?: string | null;
+};
+
 const invalidCredentialsError = new AppError("UNAUTHORIZED", "Invalid email or password.");
 
 const workspaceSettingsDefaults = {
@@ -120,6 +131,76 @@ async function firstWorkspaceForUser(userId: string) {
   };
 }
 
+async function createUserWithWorkspace(input: CreateUserWithWorkspaceInput, tx: Prisma.TransactionClient) {
+  const workspaceSlug = await generateUniqueWorkspaceSlug(input.workspaceName, tx);
+
+  const user = await tx.user.create({
+    data: {
+      name: input.name,
+      email: input.email,
+      passwordHash: input.passwordHash,
+      avatarUrl: input.avatarUrl,
+      emailVerifiedAt: input.emailVerifiedAt,
+      provider: input.provider,
+      providerAccountId: input.providerAccountId
+    },
+    select: userSelect()
+  });
+
+  const workspace = await tx.workspace.create({
+    data: {
+      name: input.workspaceName,
+      slug: workspaceSlug,
+      createdById: user.id
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true
+    }
+  });
+
+  await tx.workspaceMember.create({
+    data: {
+      workspaceId: workspace.id,
+      userId: user.id,
+      role: "OWNER",
+      joinedAt: new Date()
+    }
+  });
+
+  await tx.userSettings.create({
+    data: {
+      userId: user.id,
+      defaultWorkspaceId: workspace.id,
+      emailNotificationsEnabled: true
+    }
+  });
+
+  await tx.workspaceSettings.create({
+    data: {
+      workspaceId: workspace.id,
+      ...workspaceSettingsDefaults
+    }
+  });
+
+  await tx.auditLog.create({
+    data: {
+      workspaceId: workspace.id,
+      actorUserId: user.id,
+      action: "USER_SIGNED_UP",
+      entityType: "User",
+      entityId: user.id,
+      metadata: input.provider ? { provider: input.provider } : undefined
+    }
+  });
+
+  return {
+    user,
+    workspace
+  };
+}
+
 export async function signup(input: SignupInput) {
   const existingUser = await prisma.user.findUnique({
     where: { email: input.email },
@@ -143,63 +224,15 @@ export async function signup(input: SignupInput) {
         throw new AppError("CONFLICT", "Email is already registered.");
       }
 
-      const workspaceSlug = await generateUniqueWorkspaceSlug(input.workspaceName, tx);
-
-      const user = await tx.user.create({
-        data: {
+      const { user, workspace } = await createUserWithWorkspace(
+        {
           name: input.name,
           email: input.email,
-          passwordHash
+          passwordHash,
+          workspaceName: input.workspaceName
         },
-        select: userSelect()
-      });
-
-      const workspace = await tx.workspace.create({
-        data: {
-          name: input.workspaceName,
-          slug: workspaceSlug,
-          createdById: user.id
-        },
-        select: {
-          id: true,
-          name: true,
-          slug: true
-        }
-      });
-
-      await tx.workspaceMember.create({
-        data: {
-          workspaceId: workspace.id,
-          userId: user.id,
-          role: "OWNER",
-          joinedAt: new Date()
-        }
-      });
-
-      await tx.userSettings.create({
-        data: {
-          userId: user.id,
-          defaultWorkspaceId: workspace.id,
-          emailNotificationsEnabled: true
-        }
-      });
-
-      await tx.workspaceSettings.create({
-        data: {
-          workspaceId: workspace.id,
-          ...workspaceSettingsDefaults
-        }
-      });
-
-      await tx.auditLog.create({
-        data: {
-          workspaceId: workspace.id,
-          actorUserId: user.id,
-          action: "USER_SIGNED_UP",
-          entityType: "User",
-          entityId: user.id
-        }
-      });
+        tx
+      );
 
       return {
         user,
@@ -210,6 +243,142 @@ export async function signup(input: SignupInput) {
       maxWait: 10_000,
       timeout: 15_000
     });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      Array.isArray(error.meta?.target) &&
+      error.meta.target.includes("email")
+    ) {
+      throw new AppError("CONFLICT", "Email is already registered.");
+    }
+
+    throw error;
+  }
+}
+
+export async function loginWithGoogleProfile(input: {
+  email: string;
+  emailVerified: boolean;
+  name: string | null;
+  providerAccountId: string;
+  avatarUrl: string | null;
+}) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const now = new Date();
+
+  try {
+    const [user, workspace] = await prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findFirst({
+        where: {
+          email: normalizedEmail,
+          deletedAt: null
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          provider: true,
+          providerAccountId: true,
+          avatarUrl: true,
+          emailVerifiedAt: true
+        }
+      });
+
+      if (existingUser) {
+        const savedUser = await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            lastLoginAt: now,
+            provider: existingUser.provider ?? "google",
+            providerAccountId: existingUser.providerAccountId ?? input.providerAccountId,
+            avatarUrl: existingUser.avatarUrl ?? input.avatarUrl,
+            emailVerifiedAt: existingUser.emailVerifiedAt ?? (input.emailVerified ? now : undefined)
+          },
+          select: userSelect()
+        });
+
+        const membership = await tx.workspaceMember.findFirst({
+          where: {
+            userId: existingUser.id,
+            workspace: {
+              deletedAt: null
+            }
+          },
+          orderBy: { createdAt: "asc" },
+          select: {
+            role: true,
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            }
+          }
+        });
+
+        if (!membership) {
+          throw new AppError("NOT_FOUND", "Workspace membership not found.");
+        }
+
+        const currentWorkspace = {
+          id: membership.workspace.id,
+          name: membership.workspace.name,
+          slug: membership.workspace.slug,
+          role: membership.role
+        };
+
+        await tx.auditLog.create({
+          data: {
+            workspaceId: currentWorkspace.id,
+            actorUserId: savedUser.id,
+            action: "USER_LOGGED_IN",
+            entityType: "User",
+            entityId: savedUser.id,
+            metadata: { provider: "google" }
+          }
+        });
+
+        return [savedUser, currentWorkspace] as const;
+      }
+
+      const { user: createdUser, workspace: createdWorkspace } = await createUserWithWorkspace(
+        {
+          name: input.name,
+          email: normalizedEmail,
+          workspaceName: input.name ? `${input.name}'s Workspace` : "LexAI Workspace",
+          avatarUrl: input.avatarUrl,
+          emailVerifiedAt: input.emailVerified ? now : null,
+          provider: "google",
+          providerAccountId: input.providerAccountId
+        },
+        tx
+      );
+
+      await tx.user.update({
+        where: { id: createdUser.id },
+        data: { lastLoginAt: now }
+      });
+
+      return [
+        createdUser,
+        {
+          ...createdWorkspace,
+          role: "OWNER" as const
+        }
+      ] as const;
+    }, {
+      maxWait: 10_000,
+      timeout: 15_000
+    });
+
+    return {
+      user,
+      currentWorkspaceId: workspace.id,
+      workspace,
+      token: issueToken(user)
+    };
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

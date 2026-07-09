@@ -18,6 +18,48 @@ Invoke-WebRequest http://localhost:8000/ready
 
 `/health` should stay available while the API process is running. `/ready` returns `503` when the database is temporarily unavailable instead of crashing local development.
 
+## Google OAuth
+
+Create or update these local environment files:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+Copy-Item frontend\.env.example frontend\.env.local
+```
+
+Backend OAuth variables:
+
+```powershell
+FRONTEND_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=<google-web-client-id>
+GOOGLE_CLIENT_SECRET=<google-web-client-secret>
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
+```
+
+Frontend variable:
+
+```powershell
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+```
+
+In Google Cloud, configure the OAuth web client with these local values:
+
+- Authorized JavaScript origin: `http://localhost:3000`
+- Authorized redirect URI: `http://localhost:8000/api/v1/auth/google/callback`
+
+For deployment, also add:
+
+- Deployed frontend origin, for example `https://lex-ai-frontend-opal.vercel.app`
+- Deployed backend callback: `https://<backend-domain>/api/v1/auth/google/callback`
+
+`GOOGLE_OAUTH_REDIRECT_URI` must exactly match the callback URL registered in Google Cloud. Keep `GOOGLE_CLIENT_SECRET` only on the backend.
+
+Local smoke test:
+
+```text
+Open http://localhost:3000/login, click Continue with Google, complete Google login, and confirm the app lands on /dashboard. In Prisma Studio or the database, confirm the user has a workspace, workspace member, user settings row, and default workspace.
+```
+
 ## Prisma EPERM on Windows
 
 On Windows, `prisma generate` can fail with an error like:

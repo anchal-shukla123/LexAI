@@ -118,6 +118,8 @@ model User {
   email           String    @unique
   name            String?
   passwordHash    String?
+  provider        String?
+  providerAccountId String?
   avatarUrl       String?
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
@@ -140,6 +142,7 @@ model User {
   clauseRewrites            ClauseRewrite[]    @relation("ClauseRewriteCreator")
 
   @@index([createdAt])
+  @@index([provider, providerAccountId])
 }
 
 model Workspace {

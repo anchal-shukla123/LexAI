@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, ReactNode, Suspense, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
@@ -25,7 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, signup } from "@/lib/auth-client";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, getApiBaseUrl } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 type AuthMode = "login" | "signup";
@@ -104,6 +104,16 @@ const premiumInputClass =
   "lexai-auth-input h-12 rounded-xl pl-10";
 const fieldIconClass = "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7E8A86]";
 
+const oauthErrorMessages: Record<string, string> = {
+  google_denied: "Google sign-in was cancelled.",
+  invalid_state: "Google sign-in expired. Please try again.",
+  missing_code: "Google did not return a sign-in code. Please try again.",
+  oauth_not_configured: "Google sign-in is not configured yet.",
+  token_exchange_failed: "Google sign-in could not be completed. Please try again.",
+  google_profile_invalid: "Google could not verify your profile. Please try another account.",
+  oauth_failed: "Google sign-in failed. Please try again."
+};
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -147,6 +157,19 @@ function getBackendErrorMessage(error: unknown, mode: AuthMode) {
 }
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
+  return (
+    <Suspense fallback={<AuthPageContent mode={mode} oauthError={null} />}>
+      <AuthPageWithSearchParams mode={mode} />
+    </Suspense>
+  );
+}
+
+function AuthPageWithSearchParams({ mode }: { mode: AuthMode }) {
+  const searchParams = useSearchParams();
+  return <AuthPageContent mode={mode} oauthError={searchParams.get("oauthError")} />;
+}
+
+function AuthPageContent({ mode, oauthError }: { mode: AuthMode; oauthError: string | null }) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
   const copy = content[mode];
@@ -161,6 +184,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotMessage, setForgotMessage] = useState("");
+  const oauthErrorMessage = oauthError ? oauthErrorMessages[oauthError] ?? oauthErrorMessages.oauth_failed : null;
 
   const passwordStrength = useMemo(() => {
     let score = 0;
@@ -239,11 +263,17 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
   function handleGoogle() {
     setErrors({});
+    setForgotMessage("");
     setGoogleLoading(true);
-    window.setTimeout(() => {
+
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) {
       setGoogleLoading(false);
-      setForgotMessage(mode === "signup" ? "Google sign up will be available soon." : "Google login will be available soon.");
-    }, 250);
+      setErrors({ form: "Backend API URL is not configured." });
+      return;
+    }
+
+    window.location.assign(`${apiBaseUrl}/auth/google`);
   }
 
   const entrance = shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 };
@@ -474,6 +504,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   )}
 
                   {forgotMessage ? <p className="rounded-lg border border-[#D9B76E]/30 bg-[#D9B76E]/10 px-3 py-2 text-sm leading-6 text-[#F0D89B]">{forgotMessage}</p> : null}
+                  {oauthErrorMessage ? <p className="rounded-lg border border-[#D66A5E]/30 bg-[#D66A5E]/10 px-3 py-2 text-sm leading-6 text-[#E89A92]">{oauthErrorMessage}</p> : null}
                   {errors.form ? <p className="rounded-lg border border-[#D66A5E]/30 bg-[#D66A5E]/10 px-3 py-2 text-sm leading-6 text-[#E89A92]">{errors.form}</p> : null}
 
                   <Button
